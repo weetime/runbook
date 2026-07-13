@@ -1,8 +1,6 @@
 # 脱敏红线:真实端点/密钥、tokenizer、压测产物一律不入库
 .env
 **/.env
-.secret.env
-**/.secret.env
 tok/
 **/tok/
 out/
