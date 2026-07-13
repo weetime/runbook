@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# 交互式向导:一步步填信息 → 生成 config.yaml(不入库)。
+# 交互式向导:填端点 + tokenizer + 选模板 → 生成 config.env(不入库)。
+# 压测参数不用填 —— make run 时由所选模板自动填充。
 set -euo pipefail
 cd "$(dirname "$0")"
-CFG="$PWD/config.yaml"
+CFG="$PWD/config.env"
 
 if [ -f "$CFG" ]; then
-  read -r -p "config.yaml 已存在,覆盖?(y/N) " a
+  read -r -p "config.env 已存在,覆盖?(y/N) " a
   [[ "$a" =~ ^[Yy]$ ]] || { echo "已取消。"; exit 0; }
 fi
 
 ask() { local p="$1" d="${2:-}" v; read -r -p "  $p${d:+ [$d]}: " v; printf '%s' "${v:-$d}"; }
 
-echo "evalscope runbook · 交互式配置 → 生成 config.yaml"
+echo "evalscope runbook · 交互式配置 → 生成 config.env"
 echo
 echo "── 被测端点(OpenAI 兼容)──"
 URL="";   while [ -z "$URL" ];   do URL=$(ask "端点 URL(完整 /v1/chat/completions,必填)"); done
@@ -33,30 +34,28 @@ else
 fi
 
 echo
-echo "── 选测试模板 ──"
-for f in templates/*.yaml; do
-  n=$(grep -E '^name:' "$f" | head -1 | sed 's/^name:[[:space:]]*//')
-  d=$(grep -E '^desc:' "$f" | head -1 | sed 's/^desc:[[:space:]]*//')
+echo "── 选测试模板(make run 按它自动填充压测参数)──"
+for f in templates/*.env; do
+  n="$(basename "$f" .env)"
+  d="$(head -1 "$f" | sed 's/^#[[:space:]]*//')"
   printf '  · %-18s %s\n' "$n" "$d"
 done
 TPL=$(ask "模板名" "inference-baseline")
-[ -f "templates/$TPL.yaml" ] || { echo "✗ 模板不存在:templates/$TPL.yaml" >&2; exit 1; }
+[ -f "templates/$TPL.env" ] || { echo "✗ 模板不存在:templates/$TPL.env" >&2; exit 1; }
 
 {
   echo "# evalscope runbook · config.sh 生成 —— 含真实端点/密钥,勿入库(见 .gitignore)"
-  echo "endpoint:"
-  echo "  url: \"$URL\""
-  echo "  model: \"$MODEL\""
-  echo "  key: \"$KEY\""
-  echo "tokenizer:"
-  echo "  mode: $TMODE"
+  echo "URL=\"$URL\""
+  echo "MODEL=\"$MODEL\""
+  echo "KEY=\"$KEY\""
+  echo "TOKENIZER_MODE=$TMODE"
   if [ "$TMODE" = offline ]; then
-    echo "  path: \"$TPATH\""
+    echo "TOKENIZER_PATH=\"$TPATH\""
   else
-    echo "  id: \"$TID\""
-    echo "  source: $TSRC"
+    echo "TOKENIZER_ID=\"$TID\""
+    echo "TOKENIZER_SOURCE=$TSRC"
   fi
-  echo "template: $TPL"
+  echo "TEMPLATE=$TPL"
 } > "$CFG"
 
 echo

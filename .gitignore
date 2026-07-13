@@ -1,10 +1,10 @@
 # 脱敏红线:真实端点/密钥、tokenizer、压测产物一律不入库
 .env
 **/.env
-config.yaml
-**/config.yaml
-!config.example.yaml
-!**/config.example.yaml
+config.env
+**/config.env
+!config.example.env
+!**/config.example.env
 tok/
 **/tok/
 out/

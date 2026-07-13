@@ -17,19 +17,20 @@
 
 ```bash
 cd evalscope
-make config     # 交互填端点 / tokenizer / 选模板 → 生成 config.yaml
+make config     # 交互填端点 / tokenizer / 选模板 → 生成 config.env
 make smoke      # 冒烟
-make run        # 按模板扫描(可 make run TEMPLATE=chat-slo 覆盖)
+make run        # 按模板扫描,参数自动填充(可 make run TEMPLATE=chat-slo 覆盖)
 make parse      # 找 SLO 拐点(解析最新一次 run)
 ```
 
-镜像公开在 `ghcr.io/weetime/`,`make smoke`/`make run` 缺镜像会自动拉取。详见各子目录 `RUNBOOK.md`。
+模板就是一组压测参数(`evalscope/templates/*.env`),`make run` 时自动填充,用户不用填参数。
+宿主只需 `bash + make + docker`。镜像公开在 `ghcr.io/weetime/`,`make smoke`/`make run` 缺镜像会自动拉取。详见各子目录 `RUNBOOK.md`。
 
 ## 脱敏红线(提交前必读)
 
 本仓库公开可见,**任何真实端点、密钥、内网信息都不得入库**。约定:
 
-- **真实值只写进 `config.yaml`**(`make config` 生成,已被 `.gitignore` 忽略),仓库里只放 `config.example.yaml` 模板。
+- **真实值只写进 `config.env`**(`make config` 生成,已被 `.gitignore` 忽略),仓库里只放 `config.example.env` 模板。
 - **`tok/`(tokenizer)与 `out/`(压测产物)不入库** —— 产物里会内嵌真实端点/模型名。
 - 脚本与文档一律用 `$URL` / `$MODEL` / `$KEY` 变量或 `<占位符>`,不硬编码 IP / key / 内网主机名。
 - 提交前自查:`git grep -nE '([0-9]{1,3}\.){3}[0-9]{1,3}|sk-|api[_-]?key' -- ':!*.example'` 应无命中。

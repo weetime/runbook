@@ -11,19 +11,28 @@ ensure_boot_image() {
   docker image inspect "$BOOT_IMG" >/dev/null 2>&1 || { echo "↓ 拉取镜像:$BOOT_IMG"; docker pull "$BOOT_IMG"; }
 }
 
-# 被测所用镜像(可被 config.yaml image: 覆盖)。IMG 由 conf.py 导出。
+# 被测所用镜像(可被 config.env 的 IMG= 覆盖)。
 ensure_image() {
-  : "${IMG:?IMG 未设置(应由 conf.py 导出)}"
+  : "${IMG:?IMG 未设置}"
   docker image inspect "$IMG" >/dev/null 2>&1 || { echo "↓ 拉取镜像:$IMG"; docker pull "$IMG"; }
 }
 
-# 在镜像内跑 runbook 里的 python(conf.py/parse.py)。挂载整个 runbook 目录到 /rb,
-# 转发覆盖用环境变量(未设置的 docker 会自动跳过,不会置空)。
+# 数据集逻辑名 → evalscope 的 --dataset reader + 镜像内 --dataset-path。设 DS_READER / DS_PATH。
+map_dataset() {
+  case "$1" in
+    longalpaca)   DS_READER=line_by_line; DS_PATH=/opt/evalscope-datasets/longalpaca.txt;;
+    openqa)       DS_READER=openqa;       DS_PATH=/opt/evalscope-datasets/openqa/open_qa.jsonl;;
+    share_gpt_en) DS_READER=share_gpt_en; DS_PATH=/opt/evalscope-datasets/sharegpt/common_en_70k.jsonl;;
+    share_gpt_zh) DS_READER=share_gpt_zh; DS_PATH=/opt/evalscope-datasets/sharegpt/common_zh_70k.jsonl;;
+    random)       DS_READER=random;       DS_PATH=;;   # 合成,无文件
+    *) echo "✗ 未知 dataset:$1" >&2; return 1;;
+  esac
+}
+
+# 只在镜像内跑 parse.py(统计,镜像自带 python3+sqlite)。挂载 runbook 目录到 /rb。
 pyc() {
   docker run --rm -v "$RB:/rb" -w /rb \
-    -e CONFIG -e TEMPLATE -e TEMPLATES_DIR -e PARALLEL -e NUMBER -e ROUNDS \
-    -e PROMPT_LENS -e MIN_TOKENS -e MAX_TOKENS -e SEED -e KEY \
-    -e RUN -e TTFT_SLO -e ITL_SLO -e WARMUP_DROP \
+    -e AXIS -e TTFT_SLO -e ITL_SLO -e WARMUP_DROP -e TEMPLATE \
     --entrypoint python "$BOOT_IMG" "$@"
 }
 

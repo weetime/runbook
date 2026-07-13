@@ -3,6 +3,19 @@
 > 日期:2026-07-13 · 范围:runbook/evalscope 的模板化改造(离线 Docker 版)
 > 目标读者:runbook 维护者 + 后续接 aiperf / guidellm / vegeta / helm 的人
 
+> **⚠️ 最终实现(简化定稿,以此为准)**:落地时按"越简单越好"把方案收敛掉了 —— **不用 YAML、
+> 不用 `conf.py`**。模板与配置都是**可 `source` 的 shell 片段**:
+> - `templates/<名字>.env` —— 一组压测参数(`AXIS/DATASET/PARALLEL/NUMBER/...SLO`),`make run`
+>   时 `source` 进来**自动填充**,用户不填参数;想改就直接编辑该文件。
+> - `config.env`(gitignored,`make config` 生成)—— 端点 + tokenizer + `TEMPLATE=` 选哪个模板。
+> - `run.sh` 纯 bash:`source config.env` + `source templates/$TEMPLATE.env`,`lib.sh::map_dataset`
+>   把 `DATASET` 映射到 evalscope reader/path,按 `AXIS` 扫描。**宿主零 python**。
+> - 仅 `parse.py`(统计:sqlite + 跨轮池化 p50/p95)保留,且**在镜像内跑**(`pyc`,镜像自带
+>   python3+sqlite),宿主仍只需 `bash + make + docker`。run 目录写 `run.env` 自描述供 parse 解析。
+>
+> 下面第 3–5、8 节按"YAML + conf.py"写的原始设计仅作历史留存;**sweep 双轴、独立 run 产物、
+> parse 按轴分组、首批 5 模板、目录规划**等其余部分与最终实现一致。
+
 ## 1 · 背景与目标
 
 `runbook/evalscope` 现在是**单条硬编码流程**(`setup → install → smoke → run → parse`):

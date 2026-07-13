@@ -15,8 +15,9 @@
 
 ## 约定
 
-- 每个工具一个子目录,自带 `templates/*.yaml` + `conf.py` + `Makefile`,命令统一为
-  `config / smoke / run / parse / clean`。
-- 模板 = 一个 sweep 轴(`parallel` 或 `prompt_len`)+ 固定旋钮 + 默认 SLO;详见各子目录
-  `RUNBOOK.md` 与 `docs/superpowers/specs/2026-07-13-evalscope-templates-design.md`。
-- 后续 helm 部署复用同一批模板 YAML 作为 values 输入(另行设计)。
+- 每个工具一个子目录,自带 `templates/*.env` + `Makefile`,命令统一为
+  `config / smoke / run / parse / clean`;宿主只需 `bash + make + docker`。
+- 模板 = 一个 shell 片段:一个 sweep 轴(`parallel` 或 `prompt_len`)+ 该场景的压测参数 + 默认
+  SLO,`make run` 时 `source` 进来自动填充。详见各子目录 `RUNBOOK.md` 与
+  `docs/superpowers/specs/2026-07-13-evalscope-templates-design.md`。
+- 后续 helm 部署复用同一批模板参数作为 values 输入(另行设计)。

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""聚合 + 找 SLO 拐点。按 run.json 的 sweep 轴分组(并发 或 输入长度)。
+"""聚合 + 找 SLO 拐点。按 sweep 轴分组(并发 或 输入长度;AXIS 环境变量或目录结构自动识别)。
 稳健口径:丢 round1(冷缓存)→ 每档丢前 WARMUP_DROP 条连接预热 → 暖轮逐请求原始样本汇池 →
 在池上算一次 p50/p95(不对每轮 p95 取中位,那样非单调)。样本取自各档 benchmark_data.db。"""
 import os, glob, json, sqlite3, re, csv, sys
@@ -18,14 +18,17 @@ def _run_dir():
     return latest if os.path.exists(latest) else base
 
 OUT = _run_dir()
-_meta = {}
-_mp = os.path.join(OUT, "run.json")
-if os.path.exists(_mp):
-    _meta = json.load(open(_mp))
-AXIS = _meta.get("axis", "parallel")
-_slo = _meta.get("slo") or {}
-TTFT_SLO = float(os.environ.get("TTFT_SLO", _slo.get("ttft_p95_ms") or 1500))
-ITL_SLO  = float(os.environ.get("ITL_SLO",  _slo.get("itl_p95_ms")  or 200))
+
+def _detect_axis():
+    # 有 round*/len*/ 结构即长度轴,否则并发轴。AXIS 环境变量优先(由 parse.sh 从 run.env 传入)。
+    if glob.glob(os.path.join(OUT, "round*", "len*", "sweep", "parallel_*")):
+        return "prompt_len"
+    return "parallel"
+
+AXIS = os.environ.get("AXIS") or _detect_axis()
+TTFT_SLO = float(os.environ.get("TTFT_SLO", 1500))
+ITL_SLO  = float(os.environ.get("ITL_SLO", 200))
+TEMPLATE = os.environ.get("TEMPLATE", "?")
 WARMUP_DROP = int(os.environ.get("WARMUP_DROP", 10))
 IS_LEN = (AXIS == "prompt_len")
 LABEL = "输入长度" if IS_LEN else "并发"
@@ -127,8 +130,7 @@ for r in rows:
         knee = r
 knee_c = knee["c"] if knee else None
 
-tmpl = _meta.get("template", "?")
-print(f"\n  模板:{tmpl}(轴={AXIS})· warm 轮池化(丢 round1 冷缓存 + 每档预热 {WARMUP_DROP} 条)\n")
+print(f"\n  模板:{TEMPLATE}(轴={AXIS})· warm 轮池化(丢 round1 冷缓存 + 每档预热 {WARMUP_DROP} 条)\n")
 hdr = f"  {LABEL:>6} │ {'池样本':>6} │ {'输出tok/s':>9} {'req/s':>6} │ {'TTFT p95':>9} {'ITL p95':>8} {'TPOT p50':>9}"
 print(hdr); print("  " + "─" * (len(hdr) - 2))
 csv_rows = [[AXIS, "pool_n", "out_tps", "req_rps", "ttft_p50_ms", "ttft_p95_ms",
