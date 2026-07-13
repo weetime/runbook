@@ -1,31 +1,13 @@
 #!/usr/bin/env bash
-# evalscope runbook · 配置 + 公共逻辑(被 install.sh / run.sh 用 source 载入)
-# 真实端点/密钥/tokenizer 都从 .env 读(.env 不入库);跑 `make setup` 交互生成。
+# evalscope runbook · 公共 shell 逻辑(被 run.sh source)。
+# 变量装载由 conf.py 负责:调用方须先 `eval "$(python3 conf.py)"` 再用这里的函数。
 export RB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! -f "$RB/.env" ]; then
-  echo "✗ 未找到 .env —— 先跑:make setup(或 ./setup.sh)" >&2
-  return 1 2>/dev/null || exit 1
-fi
-set -a; source "$RB/.env"; set +a
-
-# ── 必填校验 ──
-: "${URL:?.env 缺 URL}"
-: "${MODEL:?.env 缺 MODEL}"
-export KEY="${KEY:-EMPTY}"
-
-# ── 镜像 + 镜像内置 ShareGPT ──
-export IMG="${IMG:-ghcr.io/weetime/md-runner-evalscope:b6a824c-sharegpt2}"
-export SG="/opt/evalscope-datasets/sharegpt/common_en_70k.jsonl"
-
-# ── 负载参数(.env 可覆盖)──
-export PARALLEL="${PARALLEL:-4 8 16 32}"     # 并发档
-export NUMBER="${NUMBER:-60 80 120 160}"     # 每档请求数(与并发档逐元素配对)
-export ROUNDS="${ROUNDS:-3}"                 # round1=冷缓存,其余=暖缓存
-export MIN_TOKENS="${MIN_TOKENS:-128}"
-export MAX_TOKENS="${MAX_TOKENS:-256}"
-
-export OUT="$RB/out"; mkdir -p "$OUT"
+# 镜像缺则拉取(吸收原 install)。IMG 由 conf.py 导出。
+ensure_image() {
+  : "${IMG:?IMG 未设置(应由 conf.py 导出)}"
+  docker image inspect "$IMG" >/dev/null 2>&1 || { echo "↓ 拉取镜像:$IMG"; docker pull "$IMG"; }
+}
 
 # 在线拉取时只取 tokenizer 相关文件,绝不下几十 GB 权重
 # 含 chat_template.*:部分模型把 chat 模板放在独立文件而非 tokenizer_config.json
