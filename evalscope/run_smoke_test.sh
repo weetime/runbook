@@ -4,13 +4,19 @@ set -euo pipefail
 cd "$(dirname "$0")"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
-# 假 docker:image inspect 返回 0(跳过 pull);perf 调用把 argv 落盘
+# 假 docker:image inspect 返回 0(跳过 pull);conf.py 解析步在宿主用 python3 跑
+# (让 run.sh 拿到 exports);evalscope perf 调用把 argv 落盘。
 cat > "$TMP/docker" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
   image) exit 0 ;;
   pull)  exit 0 ;;
-  run)   printf '%s\n' "$@" >> "$RB_DOCKER_LOG"; exit 0 ;;
+  run)
+    if printf '%s\n' "$@" | grep -q 'conf.py'; then
+      if printf '%s\n' "$@" | grep -q -- '--json'; then python3 conf.py --json; else python3 conf.py; fi
+      exit 0
+    fi
+    printf '%s\n' "$@" >> "$RB_DOCKER_LOG"; exit 0 ;;
   *)     exit 0 ;;
 esac
 EOF

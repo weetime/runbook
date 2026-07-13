@@ -17,7 +17,7 @@ run: ## 按模板全量扫,产出独立 out/<run-id>/(可 TEMPLATE=xxx 覆盖)
 	@./run.sh
 
 parse: ## 解析最新一次 run(默认 out/latest,或 RUN=<id>),找 SLO 拐点
-	@python3 parse.py
+	@./parse.sh
 
 clean: ## 清空压测产物(out/*)
 	@rm -rf out/* && echo "cleaned"

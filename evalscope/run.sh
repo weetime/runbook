@@ -3,8 +3,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 source ./lib.sh
-eval "$(python3 conf.py)"          # 载入 URL/MODEL/KEY/IMG/AXIS/PARALLEL/... 等
-ensure_image
+ensure_boot_image                  # 先备好镜像,才能在容器内跑 conf.py
+eval "$(pyc conf.py)"              # 载入 URL/MODEL/KEY/IMG/AXIS/PARALLEL/... 等
+ensure_image                       # 被测镜像(可能被 config.yaml 覆盖)
 ensure_tokenizer                   # 导出 TOK_DIR
 
 DOUT="$PWD/out"; mkdir -p "$DOUT"
@@ -39,7 +40,7 @@ fi
 # 全量扫:独立 run 目录
 RUN_ID="$(date +%Y%m%d-%H%M%S)-$TEMPLATE"
 RDIR="$DOUT/$RUN_ID"; mkdir -p "$RDIR"
-python3 conf.py --json > "$RDIR/run.json"
+pyc conf.py --json > "$RDIR/run.json"
 ln -sfn "$RUN_ID" "$DOUT/latest"
 
 echo "被测端点: $URL"

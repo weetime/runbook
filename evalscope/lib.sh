@@ -1,12 +1,30 @@
 #!/usr/bin/env bash
-# evalscope runbook · 公共 shell 逻辑(被 run.sh source)。
-# 变量装载由 conf.py 负责:调用方须先 `eval "$(python3 conf.py)"` 再用这里的函数。
+# evalscope runbook · 公共 shell 逻辑(被 run.sh / parse.sh source)。
+# 宿主只需 bash + make + docker:conf.py / parse.py 都在镜像内跑(镜像自带 python3+sqlite)。
 export RB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 镜像缺则拉取(吸收原 install)。IMG 由 conf.py 导出。
+# 引导镜像:仅用来在容器内跑 runbook 的 python(conf.py/parse.py)。与 conf.py DEFAULT_IMG 一致。
+export BOOT_IMG="${BOOT_IMG:-ghcr.io/weetime/md-runner-evalscope:b6a824c-sharegpt2}"
+
+# 某镜像缺则拉取。
+ensure_boot_image() {
+  docker image inspect "$BOOT_IMG" >/dev/null 2>&1 || { echo "↓ 拉取镜像:$BOOT_IMG"; docker pull "$BOOT_IMG"; }
+}
+
+# 被测所用镜像(可被 config.yaml image: 覆盖)。IMG 由 conf.py 导出。
 ensure_image() {
   : "${IMG:?IMG 未设置(应由 conf.py 导出)}"
   docker image inspect "$IMG" >/dev/null 2>&1 || { echo "↓ 拉取镜像:$IMG"; docker pull "$IMG"; }
+}
+
+# 在镜像内跑 runbook 里的 python(conf.py/parse.py)。挂载整个 runbook 目录到 /rb,
+# 转发覆盖用环境变量(未设置的 docker 会自动跳过,不会置空)。
+pyc() {
+  docker run --rm -v "$RB:/rb" -w /rb \
+    -e CONFIG -e TEMPLATE -e TEMPLATES_DIR -e PARALLEL -e NUMBER -e ROUNDS \
+    -e PROMPT_LENS -e MIN_TOKENS -e MAX_TOKENS -e SEED -e KEY \
+    -e RUN -e TTFT_SLO -e ITL_SLO -e WARMUP_DROP \
+    --entrypoint python "$BOOT_IMG" "$@"
 }
 
 # 在线拉取时只取 tokenizer 相关文件,绝不下几十 GB 权重

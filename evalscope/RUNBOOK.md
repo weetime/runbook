@@ -3,6 +3,8 @@
 > 形态:**我们的 evalscope 镜像**(内置 evalscope 1.7.0 + ShareGPT 70k)+ **外挂 tokenizer**(在线拉取或离线目录)+ **OpenAI 兼容端点**。
 > 客户端不需要 GPU、不加载权重,只要能连到被测端点 + 一个 tokenizer 数 token。
 > **测试场景由模板决定**:选不同模板 = 不同数据集 / 负载形状 / SLO。
+>
+> **宿主只需 `bash + make + docker`**(无需装 python):配置解析(`conf.py`)与结果聚合(`parse.py`)都在镜像内跑,镜像自带 python3 + sqlite。
 
 ## TL;DR
 
@@ -115,9 +117,9 @@ TTFT_SLO=1500 ITL_SLO=200 make parse   # 客服口径覆盖
 |---|---|
 | `Makefile` | 入口:`config / smoke / run / parse / clean` |
 | `config.sh` | 交互式向导 → 生成 `config.yaml`(端点 + tokenizer + 选模板)|
-| `conf.py` | 零依赖加载器:合并 `config.yaml` + `templates/<name>.yaml` → shell export / JSON |
-| `lib.sh` | 公共 shell 逻辑(`ensure_image` 拉镜像、`ensure_tokenizer` 在线拉/离线校验)|
+| `conf.py` | 零依赖加载器:合并 `config.yaml` + `templates/<name>.yaml` → shell export / JSON(**在镜像内跑**)|
+| `lib.sh` | 公共 shell 逻辑(`pyc` 镜像内跑 python、`ensure_image` 拉镜像、`ensure_tokenizer` 在线拉/离线校验)|
 | `run.sh` | 按 sweep 轴扫描,落独立 `out/<run-id>/` + `run.json` |
-| `parse.py` | 聚合去冷轮 + 池化,按轴分组找 SLO 拐点 |
+| `parse.sh` · `parse.py` | `parse.sh` 在镜像内跑 `parse.py`:聚合去冷轮 + 池化,按轴分组找 SLO 拐点 |
 | `templates/*.yaml` | 场景模板库(入库、可共享,无端点/密钥)|
 | `config.example.yaml` | `config.yaml` 模板(`config.yaml` 本身不入库)|

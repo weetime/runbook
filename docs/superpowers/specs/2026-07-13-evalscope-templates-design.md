@@ -161,6 +161,12 @@ overrides:                                 # 可选:覆盖所选模板的 load �
 
 ## 5 · 零依赖加载器 `conf.py`
 
+> **实现补充(2026-07-13,python 落容器)**:为让**宿主只需 `bash + make + docker`**,
+> `conf.py` 与 `parse.py` 不在宿主跑,而是**在已必需的镜像内执行**(镜像自带 python3+sqlite):
+> `lib.sh` 提供 `pyc()`(`docker run -v "$RB:/rb" -w /rb --entrypoint python $BOOT_IMG …`,
+> 转发覆盖用环境变量),`run.sh` 用 `eval "$(pyc conf.py)"`,`parse.sh` 用 `pyc parse.py`。
+> 宿主零 python 依赖。单元测试(`conf_test.py`/`parse_test.py`)仍用宿主 python(仅开发期)。
+
 **为什么不用 PyYAML**:离线环境不保证有第三方库,而 `parse.py` 已确立"纯 python3
 stdlib"是本仓库风格。模板/配置是简单 YAML 子集(标量、列表、一层嵌套),用一个 ~50 行的
 子集解析器即可,零依赖、可复现。
