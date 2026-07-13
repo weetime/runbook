@@ -28,9 +28,20 @@ export MAX_TOKENS="${MAX_TOKENS:-256}"
 export OUT="$RB/out"; mkdir -p "$OUT"
 
 # 在线拉取时只取 tokenizer 相关文件,绝不下几十 GB 权重
-TOK_PATTERNS="['config.json','tokenizer.json','tokenizer_config.json','tokenizer.model','vocab.json','merges.txt','special_tokens_map.json','generation_config.json']"
+# 含 chat_template.*:部分模型把 chat 模板放在独立文件而非 tokenizer_config.json
+TOK_PATTERNS="['config.json','tokenizer.json','tokenizer_config.json','tokenizer.model','vocab.json','merges.txt','special_tokens_map.json','generation_config.json','chat_template.jinja','chat_template.json']"
 
 _have_tokenizer() { [ -s "$1/tokenizer.json" ] || [ -s "$1/tokenizer.model" ]; }
+
+# chat_template 可能落在:tokenizer_config.json 的 "chat_template" 键,或独立的
+# chat_template.jinja / chat_template.json 文件。三处任一存在即算有。
+_have_chat_template() {
+  local d="$1"
+  [ -s "$d/chat_template.jinja" ] && return 0
+  [ -s "$d/chat_template.json" ] && return 0
+  grep -q '"chat_template"' "$d/tokenizer_config.json" 2>/dev/null && return 0
+  return 1
+}
 
 # 在线拉取 tokenizer → 本地目录(modelscope 默认;hf 走 HF_ENDPOINT 镜像)
 fetch_tokenizer() {
@@ -62,5 +73,14 @@ ensure_tokenizer() {
       export TOK_DIR="$RB/tok" ;;
     *) echo "✗ TOKENIZER_MODE 只能是 online / offline" >&2; return 1 ;;
   esac
-  echo "✓ tokenizer:$TOK_DIR"
+  # chat/completions 压测要用 tokenizer 的 chat_template 拼多轮 prompt;缺了会跑到
+  # 一半才崩(Cannot use chat template ...),这里启动即拦,并给出可操作提示。
+  if ! _have_chat_template "$TOK_DIR"; then
+    echo "✗ tokenizer 缺 chat_template:$TOK_DIR" >&2
+    echo "  chat/completions 压测需要它拼对话 prompt。请换成被测模型对应的" >&2
+    echo "  Instruct/Chat 版 tokenizer(如 Qwen/Qwen2.5-0.5B-Instruct),改 .env 的" >&2
+    echo "  TOKENIZER_ID 后删掉 ./tok 重拉:rm -rf '$RB/tok' && make smoke" >&2
+    return 1
+  fi
+  echo "✓ tokenizer:$TOK_DIR(含 chat_template)"
 }
