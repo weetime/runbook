@@ -1,0 +1,12 @@
+name: chat-slo
+desc: 客服口径 SLO(TTFT p95≤1.5s / ITL p95≤200ms),找满足 SLO 的最大并发
+scenario: inference
+dataset: share_gpt_en
+sweep:
+  axis: parallel
+  parallel: [4, 8, 16, 32, 48]
+  number: [60, 80, 120, 160, 200]
+tokens: {min: 128, max: 256}
+rounds: 3
+seed: 42
+slo: {ttft_p95_ms: 1500, itl_p95_ms: 200}

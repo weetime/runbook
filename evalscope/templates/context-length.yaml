@@ -1,0 +1,13 @@
+name: context-length
+desc: 输入长度敏感性 — TTFT/吞吐随 prompt 长度衰减(1K/8K/32K/128K,单位=token)
+scenario: context-length
+dataset: random
+sweep:
+  axis: prompt_len
+  prompt_lens: [1024, 8192, 32768, 131072]
+  parallel: 8
+  number: 64
+tokens: {min: 128, max: 256}
+rounds: 3
+seed: 42
+slo: {ttft_p95_ms: 5000, itl_p95_ms: 300}

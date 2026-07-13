@@ -1,0 +1,12 @@
+name: throughput-max
+desc: 高并发压满、放宽 SLO,测峰值吞吐(tok/s)与饱和点
+scenario: capacity
+dataset: share_gpt_en
+sweep:
+  axis: parallel
+  parallel: [16, 32, 64, 128]
+  number: [160, 320, 640, 1280]
+tokens: {min: 128, max: 256}
+rounds: 3
+seed: 42
+slo: {ttft_p95_ms: 8000, itl_p95_ms: 500}

@@ -1,0 +1,13 @@
+name: long-context-kv
+desc: longalpaca 8K 长 prompt、冷/暖 A/B,看 KV/前缀缓存命中与稳态
+scenario: engine-kv-cache
+dataset: longalpaca
+prompt_len: [8000, 9000]        # 单位=字符(longalpaca line_by_line reader)
+sweep:
+  axis: parallel
+  parallel: [1, 8, 16, 32]
+  number: [30, 80, 120, 160]
+tokens: {min: 160, max: 200}
+rounds: 3
+seed: 42
+slo: {ttft_p95_ms: 3000, itl_p95_ms: 250}
