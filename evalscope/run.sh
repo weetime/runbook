@@ -1,27 +1,40 @@
-#!/bin/bash
-# 步骤 3-4:ShareGPT 真实流量,并发扫描 4/8/16/32,冷/暖各若干轮。
-set -e
-cd "$(dirname "$0")"; source ./env.sh
+#!/usr/bin/env bash
+# run:ShareGPT 真实流量并发扫描(冷/暖多轮)。`./run.sh smoke` 只跑单档冒烟。
+set -euo pipefail
+cd "$(dirname "$0")"
+source ./env.sh
+ensure_tokenizer     # 在线模式若 ./tok 缺,会在此按需拉取(run 阶段也支持在线拉)
+
+if [ "${1:-sweep}" = "smoke" ]; then
+  echo "==> 冒烟:单档 parallel=4 number=8(只看跑不跑得通)"
+  docker run --rm -v "$TOK_DIR:/tok:ro" --entrypoint evalscope "$IMG" \
+    perf --url "$URL" --api openai --model "$MODEL" --api-key "$KEY" \
+      --tokenizer-path /tok \
+      --dataset share_gpt_en --dataset-path "$SG" \
+      --parallel 4 --number 8 \
+      --min-tokens "$MIN_TOKENS" --max-tokens "$MAX_TOKENS" \
+      --stream --seed 42
+  echo "==> 冒烟通过即可 make run"
+  exit 0
+fi
+
 echo "被测端点: $URL"
 echo "模型:     $MODEL"
-echo "并发档:   $PAR    | 每档请求数: $NUM"
-echo "轮次:     $ROUNDS(round1=冷缓存,其余=暖缓存;每档去极值取中位)"
+echo "并发档:   $PARALLEL | 每档: $NUMBER | 轮次: $ROUNDS(round1=冷缓存)"
 echo
-
-rm -rf "$OUT"/round*        # evalscope 若见旧 benchmark_data.db 会拒跑,先清空
+rm -rf "$OUT"/round*     # evalscope 见旧 benchmark_data.db 会拒跑,先清空
 
 for r in $(seq 1 "$ROUNDS"); do
   tag=$([ "$r" -eq 1 ] && echo 冷缓存 || echo 暖缓存)
   echo "========== 第 $r/$ROUNDS 轮($tag)=========="
-  docker run --rm -v "$TOK:/tok" -v "$OUT:/work/out" --entrypoint evalscope "$IMG" \
+  docker run --rm -v "$TOK_DIR:/tok:ro" -v "$OUT:/work/out" --entrypoint evalscope "$IMG" \
     perf --url "$URL" --api openai --model "$MODEL" --api-key "$KEY" \
       --tokenizer-path /tok \
       --dataset share_gpt_en --dataset-path "$SG" \
-      --parallel $PAR --number $NUM \
-      --max-tokens 256 --min-tokens 128 \
+      --parallel $PARALLEL --number $NUMBER \
+      --min-tokens "$MIN_TOKENS" --max-tokens "$MAX_TOKENS" \
       --stream --seed 42 \
       --outputs-dir "/work/out/round$r" --name sweep --no-timestamp
   echo
 done
-echo "全部完成 → $OUT"
-echo "下一步:python3 parse.py   # 聚合去极值 + 找 SLO 拐点"
+echo "==> 全部完成 → make parse(聚合去冷轮 + 池化找 SLO 拐点)"
