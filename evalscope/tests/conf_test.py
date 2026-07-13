@@ -3,7 +3,8 @@
 """conf.py 单元测试:YAML 子集解析 + 合并/校验/输出。跑:python3 conf_test.py"""
 import os, sys, json, tempfile, subprocess, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
+ROOT = os.path.dirname(HERE)          # 上级目录含 conf.py
+sys.path.insert(0, ROOT)
 import conf  # noqa: E402
 
 PARALLEL_TPL = """\
@@ -145,12 +146,12 @@ class ResolveTests(unittest.TestCase):
     def test_exports_and_json(self):
         d, tdir = self._dir()
         env = dict(os.environ); env.update({"CONFIG": os.path.join(d, "config.yaml"), "TEMPLATES_DIR": tdir})
-        exp = subprocess.run([sys.executable, os.path.join(HERE, "conf.py")],
+        exp = subprocess.run([sys.executable, os.path.join(ROOT, "conf.py")],
                              env=env, capture_output=True, text=True)
         self.assertIn('export AXIS=parallel', exp.stdout)
         self.assertIn('export PARALLEL=', exp.stdout)
         self.assertIn('export DS_PATH=', exp.stdout)
-        js = subprocess.run([sys.executable, os.path.join(HERE, "conf.py"), "--json"],
+        js = subprocess.run([sys.executable, os.path.join(ROOT, "conf.py"), "--json"],
                             env=env, capture_output=True, text=True)
         obj = json.loads(js.stdout)
         self.assertEqual(obj["axis"], "parallel")

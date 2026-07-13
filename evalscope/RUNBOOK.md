@@ -123,3 +123,4 @@ TTFT_SLO=1500 ITL_SLO=200 make parse   # 客服口径覆盖
 | `parse.sh` · `parse.py` | `parse.sh` 在镜像内跑 `parse.py`:聚合去冷轮 + 池化,按轴分组找 SLO 拐点 |
 | `templates/*.yaml` | 场景模板库(入库、可共享,无端点/密钥)|
 | `config.example.yaml` | `config.yaml` 模板(`config.yaml` 本身不入库)|
+| `tests/` | 开发期单测(`conf_test.py` / `parse_test.py` / `run_smoke_test.sh`),终端用户不需要 |

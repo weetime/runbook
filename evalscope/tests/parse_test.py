@@ -3,6 +3,7 @@
 """parse.py 集成测试:构造两轴 fixture run 目录(冷 round1 + 暖 round2),断言分组与拐点。"""
 import os, sys, json, sqlite3, tempfile, subprocess, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)          # 上级目录含 parse.py
 
 def make_db(path, ttft_s, itl_s, n=30):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -20,7 +21,7 @@ def make_summary(path, out_tps=100.0, req_rps=1.0):
 
 class ParseTests(unittest.TestCase):
     def _run(self, d):
-        return subprocess.run([sys.executable, os.path.join(HERE, "parse.py"), d],
+        return subprocess.run([sys.executable, os.path.join(ROOT, "parse.py"), d],
                               capture_output=True, text=True)
 
     def test_parallel_axis_knee(self):

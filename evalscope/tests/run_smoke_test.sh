@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 用假 docker + 离线 tokenizer fixture 验证 run.sh smoke 组出的 evalscope argv。
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."          # 到 evalscope 目录(run.sh/conf.py 所在)
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # 假 docker:image inspect 返回 0(跳过 pull);conf.py 解析步在宿主用 python3 跑
