@@ -1182,7 +1182,8 @@ Run:
 ```bash
 cd evalscope
 bash -n config.sh && echo "syntax OK"
-printf 'y\nhttp://HOST:8000/v1/chat/completions\nmy-model\nEMPTY\n1\norg/model\nmodelscope\ncontext-length\n' | ./config.sh
+# 无既有 config.yaml 时不发「覆盖?」那步的 y;交互项依次:URL/MODEL/KEY/模式/仓库id/源/模板
+printf 'http://HOST:8000/v1/chat/completions\nmy-model\nEMPTY\n1\norg/model\nmodelscope\ncontext-length\n' | ./config.sh
 CONFIG="$PWD/config.yaml" python3 conf.py --json | python3 -c 'import sys,json;print("axis=",json.load(sys.stdin)["axis"])'
 rm -f config.yaml
 ```
