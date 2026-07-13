@@ -1,40 +1,68 @@
 #!/usr/bin/env bash
-# run:ShareGPT 真实流量并发扫描(冷/暖多轮)。`./run.sh smoke` 只跑单档冒烟。
+# run:按模板 sweep 轴扫描,每次落独立 out/<run-id>/。`./run.sh smoke` 单档冒烟。
 set -euo pipefail
 cd "$(dirname "$0")"
-source ./env.sh
-ensure_tokenizer     # 在线模式若 ./tok 缺,会在此按需拉取(run 阶段也支持在线拉)
+source ./lib.sh
+eval "$(python3 conf.py)"          # 载入 URL/MODEL/KEY/IMG/AXIS/PARALLEL/... 等
+ensure_image
+ensure_tokenizer                   # 导出 TOK_DIR
 
-if [ "${1:-sweep}" = "smoke" ]; then
-  echo "==> 冒烟:单档 parallel=4 number=8(只看跑不跑得通)"
-  docker run --rm -v "$TOK_DIR:/tok:ro" --entrypoint evalscope "$IMG" \
+DOUT="$PWD/out"; mkdir -p "$DOUT"
+
+# 单次 evalscope 调用。$1=容器内 outputs-dir,其余=额外 flag(并发档 / prompt 长度)
+_evalscope() {
+  local outdir="$1"; shift
+  docker run --rm -v "$TOK_DIR:/tok:ro" -v "$DOUT:/work/out" --entrypoint evalscope "$IMG" \
     perf --url "$URL" --api openai --model "$MODEL" --api-key "$KEY" \
       --tokenizer-path /tok \
-      --dataset share_gpt_en --dataset-path "$SG" \
-      --parallel 4 --number 8 \
+      --dataset "$DS_READER" ${DS_PATH:+--dataset-path "$DS_PATH"} \
       --min-tokens "$MIN_TOKENS" --max-tokens "$MAX_TOKENS" \
-      --stream --seed 42
+      --stream --seed "$SEED" \
+      --name sweep --no-timestamp --outputs-dir "$outdir" "$@"
+}
+
+# 冒烟:单档小跑,不写 run-id / run.json
+if [ "${1:-run}" = "smoke" ]; then
+  echo "==> 冒烟:单档 parallel=4 number=8(只看跑不跑得通)"
+  rm -rf "$DOUT/smoke"
+  if [ "$AXIS" = "prompt_len" ]; then
+    L="$(printf '%s\n' $PROMPT_LENS | sort -n | head -1)"
+    _evalscope "/work/out/smoke" --parallel 4 --number 8 --min-prompt-length "$L" --max-prompt-length "$L"
+  else
+    _evalscope "/work/out/smoke" --parallel 4 --number 8 \
+      ${PROMPT_MIN:+--min-prompt-length "$PROMPT_MIN" --max-prompt-length "$PROMPT_MAX"}
+  fi
   echo "==> 冒烟通过即可 make run"
   exit 0
 fi
 
+# 全量扫:独立 run 目录
+RUN_ID="$(date +%Y%m%d-%H%M%S)-$TEMPLATE"
+RDIR="$DOUT/$RUN_ID"; mkdir -p "$RDIR"
+python3 conf.py --json > "$RDIR/run.json"
+ln -sfn "$RUN_ID" "$DOUT/latest"
+
 echo "被测端点: $URL"
 echo "模型:     $MODEL"
-echo "并发档:   $PARALLEL | 每档: $NUMBER | 轮次: $ROUNDS(round1=冷缓存)"
+echo "模板:     $TEMPLATE(轴=$AXIS)| 轮次: $ROUNDS(round1=冷缓存)"
+echo "产物:     out/$RUN_ID(out/latest → 之)"
 echo
-rm -rf "$OUT"/round*     # evalscope 见旧 benchmark_data.db 会拒跑,先清空
 
 for r in $(seq 1 "$ROUNDS"); do
   tag=$([ "$r" -eq 1 ] && echo 冷缓存 || echo 暖缓存)
   echo "========== 第 $r/$ROUNDS 轮($tag)=========="
-  docker run --rm -v "$TOK_DIR:/tok:ro" -v "$OUT:/work/out" --entrypoint evalscope "$IMG" \
-    perf --url "$URL" --api openai --model "$MODEL" --api-key "$KEY" \
-      --tokenizer-path /tok \
-      --dataset share_gpt_en --dataset-path "$SG" \
+  if [ "$AXIS" = "prompt_len" ]; then
+    for L in $PROMPT_LENS; do
+      echo "---------- 输入长度 $L ----------"
+      _evalscope "/work/out/$RUN_ID/round$r/len$L" \
+        --parallel $PARALLEL --number $NUMBER \
+        --min-prompt-length "$L" --max-prompt-length "$L"
+    done
+  else
+    _evalscope "/work/out/$RUN_ID/round$r" \
       --parallel $PARALLEL --number $NUMBER \
-      --min-tokens "$MIN_TOKENS" --max-tokens "$MAX_TOKENS" \
-      --stream --seed 42 \
-      --outputs-dir "/work/out/round$r" --name sweep --no-timestamp
+      ${PROMPT_MIN:+--min-prompt-length "$PROMPT_MIN" --max-prompt-length "$PROMPT_MAX"}
+  fi
   echo
 done
-echo "==> 全部完成 → make parse(聚合去冷轮 + 池化找 SLO 拐点)"
+echo "==> 全部完成 → make parse(默认解析 out/latest)"
