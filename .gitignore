@@ -1,0 +1,15 @@
+# 脱敏红线:真实端点/密钥、tokenizer、压测产物一律不入库
+.secret.env
+**/.secret.env
+tok/
+**/tok/
+out/
+**/out/
+
+# 媒体与临时
+*.mp3
+*.mp4
+_*.mp4
+.DS_Store
+__pycache__/
+*.pyc
