@@ -1,0 +1,21 @@
+# 复制为 config.yaml 手填,或直接跑 `make config` 交互生成。
+# config.yaml 不入库(见 .gitignore);本文件是入库模板,不得含真实端点/密钥。
+endpoint:
+  url: http://<LAN-IP>:<port>/v1/chat/completions   # 被测端点完整 chat/completions 路径
+  model: <服务端注册的模型名>
+  key: EMPTY                                          # 网关 key;无则 EMPTY
+
+# Tokenizer(evalscope 数 token 用,不是权重):online 二填其一
+tokenizer:
+  mode: online                     # online | offline
+  id: <org/model,如 deepseek-ai/DeepSeek-V3>
+  source: modelscope               # modelscope | hf(hf 走 HF_ENDPOINT,默认 hf-mirror.com)
+  # mode: offline
+  # path: /abs/path/to/tok         # offline:本机已有 tokenizer 目录(含 tokenizer.json)
+
+template: inference-baseline       # 选用哪个模板(make config 会列出可选)
+
+# image: ghcr.io/weetime/md-runner-evalscope:b6a824c-sharegpt2   # 可选,有内置默认
+# overrides:                       # 可选:覆盖所选模板的 load 参数
+#   rounds: 2
+#   parallel: [8, 16]
