@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# 交互式向导:一步步引导填信息 → 生成 .env(不入库)。
+# 交互式向导:一步步填信息 → 生成 config.yaml(不入库)。
 set -euo pipefail
 cd "$(dirname "$0")"
-ENV="$PWD/.env"
+CFG="$PWD/config.yaml"
 
-if [ -f "$ENV" ]; then
-  read -r -p ".env 已存在,覆盖?(y/N) " a
+if [ -f "$CFG" ]; then
+  read -r -p "config.yaml 已存在,覆盖?(y/N) " a
   [[ "$a" =~ ^[Yy]$ ]] || { echo "已取消。"; exit 0; }
 fi
 
 ask() { local p="$1" d="${2:-}" v; read -r -p "  $p${d:+ [$d]}: " v; printf '%s' "${v:-$d}"; }
 
-echo "evalscope runbook · 交互式配置 → 生成 .env"
+echo "evalscope runbook · 交互式配置 → 生成 config.yaml"
 echo
 echo "── 被测端点(OpenAI 兼容)──"
 URL="";   while [ -z "$URL" ];   do URL=$(ask "端点 URL(完整 /v1/chat/completions,必填)"); done
@@ -33,32 +33,32 @@ else
 fi
 
 echo
-echo "── 压测负载(回车用默认)──"
-PAR=$(ask "并发档" "4 8 16 32")
-NUM=$(ask "每档请求数(与并发档一一对应)" "60 80 120 160")
-RND=$(ask "轮次(round1=冷缓存)" "3")
-MINT=$(ask "min-tokens" "128")
-MAXT=$(ask "max-tokens" "256")
+echo "── 选测试模板 ──"
+for f in templates/*.yaml; do
+  n=$(grep -E '^name:' "$f" | head -1 | sed 's/^name:[[:space:]]*//')
+  d=$(grep -E '^desc:' "$f" | head -1 | sed 's/^desc:[[:space:]]*//')
+  printf '  · %-18s %s\n' "$n" "$d"
+done
+TPL=$(ask "模板名" "inference-baseline")
+[ -f "templates/$TPL.yaml" ] || { echo "✗ 模板不存在:templates/$TPL.yaml" >&2; exit 1; }
 
 {
-  echo "# evalscope runbook · setup.sh 生成 —— 含真实端点/密钥,勿入库(见 .gitignore)"
-  echo "URL=\"$URL\""
-  echo "MODEL=\"$MODEL\""
-  echo "KEY=\"$KEY\""
-  echo "TOKENIZER_MODE=$TMODE"
+  echo "# evalscope runbook · config.sh 生成 —— 含真实端点/密钥,勿入库(见 .gitignore)"
+  echo "endpoint:"
+  echo "  url: \"$URL\""
+  echo "  model: \"$MODEL\""
+  echo "  key: \"$KEY\""
+  echo "tokenizer:"
+  echo "  mode: $TMODE"
   if [ "$TMODE" = offline ]; then
-    echo "TOKENIZER_PATH=\"$TPATH\""
+    echo "  path: \"$TPATH\""
   else
-    echo "TOKENIZER_ID=\"$TID\""
-    echo "TOKENIZER_SOURCE=$TSRC"
+    echo "  id: \"$TID\""
+    echo "  source: $TSRC"
   fi
-  echo "PARALLEL=\"$PAR\""
-  echo "NUMBER=\"$NUM\""
-  echo "ROUNDS=$RND"
-  echo "MIN_TOKENS=$MINT"
-  echo "MAX_TOKENS=$MAXT"
-} > "$ENV"
+  echo "template: $TPL"
+} > "$CFG"
 
 echo
-echo "✓ 已写 $ENV"
-echo "下一步:make install && make smoke && make run && make parse"
+echo "✓ 已写 $CFG"
+echo "下一步:make smoke && make run && make parse"
