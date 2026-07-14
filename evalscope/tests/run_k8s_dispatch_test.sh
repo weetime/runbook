@@ -6,8 +6,9 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 cat > "$TMP/kubectl" <<'EOF'
 #!/usr/bin/env bash
-# apply 出现在参数里 → 落 stdin 的 yaml;其余(config/wait/logs)当成功。
+# apply → 落 stdin 的 yaml;get(轮询 pod phase)→ 返回 Succeeded 让轮询立即结束;其余当成功。
 for a in "$@"; do [ "$a" = apply ] && { cat > "$RB_KLOG"; exit 0; }; done
+for a in "$@"; do [ "$a" = get ] && { echo Succeeded; exit 0; }; done
 exit 0
 EOF
 chmod +x "$TMP/kubectl"

@@ -46,9 +46,16 @@ run_k8s() {
   echo "模板:     $TEMPLATE(轴=$AXIS)"
   echo "落地:     k8s Job $job(ns=$ns · context=$(kubectl config current-context 2>/dev/null))"; echo
   render_k8s_yaml | kubectl -n "$ns" apply -f -
-  echo "==> 已 apply;等 pod 就绪后跟随日志(Ctrl-C 不停 Job):"
-  kubectl -n "$ns" wait --for=condition=ready pod \
-    -l "batch.kubernetes.io/job-name=$job" --timeout=180s 2>/dev/null || true
+  echo "==> 已 apply;等 pod 起来后跟随日志(首次拉镜像可能较久,Ctrl-C 不停 Job):"
+  # 轮询直到 pod 进入 Running/Succeeded/Failed 再跟日志:apply 返回时 Job 控制器可能还没建 pod
+  # (kubectl wait 会 "no matching resources found" 直接返回),且首拉大镜像会长时间 ContainerCreating。
+  local i phase
+  for i in $(seq 1 180); do
+    phase="$(kubectl -n "$ns" get pods -l "batch.kubernetes.io/job-name=$job" \
+      -o jsonpath='{.items[0].status.phase}' 2>/dev/null || true)"
+    case "$phase" in Running|Succeeded|Failed) break ;; esac
+    sleep 5
+  done
   kubectl -n "$ns" logs -f "job/$job" || true
   echo "==> 结束。清理:kubectl -n $ns delete job/$job configmap/$job secret/$job"
 }
