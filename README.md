@@ -26,6 +26,10 @@ make parse      # 找 SLO 拐点(解析最新一次 run)
 模板就是一组压测参数(`evalscope/templates/*.env`),`make run` 时自动填充,用户不用填参数。
 宿主只需 `bash + make + docker`。镜像公开在 `ghcr.io/weetime/`,`make smoke`/`make run` 缺镜像会自动拉取。详见各子目录 `RUNBOOK.md`。
 
+`make run` 走 modeldoctor 的 runner 默认入口(`python -m runner`),sweep 在容器内跑,产物落
+`out/<run-id>/`(含 runner 写的 `result.json`/`meta.json`)——与平台在线跑**同镜像、同契约、
+同布局**,离线量出来的口径与在线一致。
+
 ## 脱敏红线(提交前必读)
 
 本仓库公开可见,**任何真实端点、密钥、内网信息都不得入库**。约定:

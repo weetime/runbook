@@ -88,9 +88,11 @@ ITL_SLO=300
 
 ## 4 · 扫描:`make run`
 
-`source` 所选模板 → 参数全部自动填充 → 按轴扫,冷 1 轮 + 暖若干轮,**每次产出独立目录**
-`out/<run-id>/`(`run-id = 时间戳-模板名`),并更新 `out/latest` 符号链接。目录内 `run.env` 自描述
-(模板 / 轴 / SLO),供 `parse` 独立解析。要点:
+一次 `docker run` 走镜像默认入口 `python -m runner`;容器内 `sweep.sh` `source` 所选模板 →
+参数全部自动填充 → 按轴扫,冷 1 轮 + 暖若干轮,**产出独立目录** `out/<run-id>/`
+(`run-id = 时间戳-模板名`),并更新 `out/latest` 符号链接。目录内除 `run.env`(自描述:模板 /
+轴 / SLO,供 `parse` 独立解析)外,还多出 `result.json`/`meta.json`/`stdout.log`(runner 写,
+与在线 modeldoctor 逐字节同布局)。要点:
 
 - **`PARALLEL`/`NUMBER` 逐元素配对**,不是笛卡尔积。
 - **确定性** `SEED`,建议服务端 temperature=0。
@@ -114,7 +116,7 @@ SLO 默认从 run 目录的 `run.env` 读,也可覆盖:`TTFT_SLO=1500 ITL_SLO=20
 ## 编号踩坑清单(按代价排序)
 
 1. **tokenizer 要真实文件**:在线模式白名单只拉 tokenizer(非权重、非几百字节 metadata);缺 `chat_template` 要补;否则 token 数不出、TPOT/吞吐全错。
-2. **调裸 evalscope 要 `--entrypoint evalscope`**(脚本已带),否则命中镜像默认 `python -m runner`。
+2. **走 runner 默认入口 `python -m runner`**(run.sh 不再覆盖 entrypoint):容器内 `sweep.sh` 直接调 `evalscope`(在 PATH 上),runner 负责读 `MD_ARGV`、tee 日志、写 `result.json`/`meta.json`——与在线 modeldoctor 同布局。
 3. **数据集用镜像内置路径**(`lib.sh` 的 `map_dataset` 已按 `DATASET` 映射),无需本机再下。
 4. `PARALLEL` 与 `NUMBER` **逐元素配对**,不是笛卡尔积。
 5. **每次 run 独立目录**:互不覆盖、可横向对比;清历史用 `make clean`。
@@ -133,7 +135,8 @@ SLO 默认从 run 目录的 `run.env` 读,也可覆盖:`TTFT_SLO=1500 ITL_SLO=20
 | `config.sh` | 交互式向导 → 生成 `config.env`(端点 + tokenizer + 选模板) |
 | `templates/*.env` | 场景模板:一组压测参数(入库、可共享,无端点/密钥) |
 | `config.example.env` | `config.env` 模板(`config.env` 本身不入库) |
-| `lib.sh` | 公共 shell 逻辑(`map_dataset` 数据集映射、`ensure_image` 拉镜像、`ensure_tokenizer` 拉/校验、`pyc` 镜像内跑 parse) |
-| `run.sh` | source 模板 → 按轴扫描,落独立 `out/<run-id>/` + `run.env` |
+| `lib.sh` | 公共 shell 逻辑(`ensure_image` 拉镜像、`pyc` 镜像内跑 parse)。tokenizer/dataset 映射已随 sweep 移进容器 |
+| `run.sh` | source config+模板 → 组 `MD_*` env → 一次 `docker run`(runner 默认入口) |
+| `sweep.sh` | **容器内**跑:dataset 映射 + 确保 `/tok`(缺则在线拉)+ 按轴扫(冷/暖轮)+ 末尾 `parse.py` 打表 |
 | `parse.sh` · `parse.py` | `parse.sh` 在镜像内跑 `parse.py`:聚合去冷轮 + 池化,按轴找 SLO 拐点 |
 | `tests/` | 开发期单测(`parse_test.py` / `run_smoke_test.sh`),终端用户不需要 |
