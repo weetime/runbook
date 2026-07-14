@@ -1,6 +1,6 @@
-# 设计:runbook 复用 modeldoctor runner —— 离线 docker 模式,与在线口径一致
+# 设计:runbook 复用 modeldoctor runner —— 离线 docker / k8s 两模式,与在线口径一致
 
-> 状态:已定稿(docker-only 首版)· 2026-07-14
+> 状态:已实现(docker + k8s)· 2026-07-14
 > 范围:`evalscope/` 子目录
 
 ## 1 · 背景与目标
@@ -17,10 +17,11 @@ modeldoctor 的 runner(`ghcr.io/weetime/md-runner-evalscope`,ENTRYPOINT
 `python -m runner` 入口、同一 `MD_ARGV` 契约、同一实时日志与产物布局** —— 只有 sink 不同
 (离线 `LocalWriter`→挂载目录,在线 `S3Writer`→MinIO)。这样离线量出来的口径与平台一致。
 
-**首版只做 docker。** k8s(离线集群、渲染 yaml + kubectl apply)已设计但**本版不实现**
-(见 §7),等 docker 形态跑顺再加。helm / docker-compose 明确不做。
+**两种离线模式(`MODE=docker|k8s`)均已实现。** docker 为默认;k8s 用于离线集群
+(渲染自包含 yaml → `kubectl apply`)。在线跑在 k8s 是 modeldoctor 平台的事,runbook 不碰。
+helm / docker-compose 明确不做。
 
-约束(用户明确):**不要过度设计;docker 要轻量。**
+约束(用户明确):**不要过度设计;docker 和 k8s 都要轻量。**
 
 ## 2 · 关键前提:modeldoctor 侧已就绪(PR #358,已合并)
 
@@ -100,11 +101,18 @@ Makefile 目标、脱敏红线。**不引入 `MODE` 开关**(只有 docker 一�
 镜像统一 `ghcr.io/weetime/md-runner-evalscope:<tag>`(= `BOOT_IMG`),与在线 modeldoctor
 同镜像。run-id 语义 `YYYYmmdd-HHMMSS-<template>`。
 
-## 7 · 不在本版范围(已设计,后续)
+## 7 · k8s 模式(已实现)
 
-- **k8s 模式**(离线集群:`render_k8s_yaml` 出自包含 Secret/ConfigMap/Job → `kubectl apply`
-  → `kubectl logs -f`,命名/labels 对齐 modeldoctor)—— 已在讨论中定型,本版不实现;届时
-  `run.sh` 外包一层 `case "$MODE"`,`sweep.sh` 原样复用(tokenizer 已可在 pod 内在线拉)。
+`MODE=k8s`:`run.sh` 的 `render_k8s_yaml`(`lib.sh`)渲染**自包含 yaml** —— Secret(`OPENAI_API_KEY`)
++ ConfigMap(内嵌 `sweep.sh`/`parse.py`)+ Job(命名/labels/容器名对齐 modeldoctor:Job 名
+`run-<id>`、容器 `runner`、`app.kubernetes.io/name: modeldoctor-run`、`backoffLimit 0`、
+`restartPolicy Never`)→ `kubectl apply -f -` → `kubectl logs -f job/run-<id>` 看 sweep + 末尾
+SLO 表。与 docker 同契约(`MD_ARGV`/`MD_OUTPUT_DIR=/work/out`/`PYTHONPATH=/app`)。sink 用
+`emptyDir`(产物随 Pod;头条结果看 logs)。tokenizer 在 Pod 内在线拉。`smoke` 仅 docker。
+
+## 8 · 不在范围
+
 - 在线 k8s(modeldoctor 平台发起 + S3)—— 已有,不碰。
-- 其它工具 runbook 化、多 Job 扇出、helm/compose、离线集群产物留存 —— 不做。
+- 其它工具 runbook 化、多 Job 扇出、helm / docker-compose —— 不做。
+- 离线集群产物留存(PVC)—— 首版用 emptyDir + logs;需要时挂 PVC 到 `/work/out`。
 - 改动 modeldoctor —— 无需(PR #358 已提供契约)。

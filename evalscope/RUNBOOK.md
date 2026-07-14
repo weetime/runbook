@@ -18,6 +18,27 @@ make parse      # 聚合去冷轮 + 池化,找 SLO 拐点(默认解析最新一�
 
 ---
 
+## 落地模式(`MODE`:docker / k8s)
+
+两种**离线**落地,同镜像、同 `python -m runner` 入口、同 `MD_ARGV` 契约、同产物布局 ——
+只有「脚本怎么进容器 / sink 挂哪」不同。在线跑在 k8s 是 modeldoctor 平台的事,runbook 不碰。
+
+| `MODE` | 跑在哪 | 交付 | sink | 命令 |
+|---|---|---|---|---|
+| `docker`(默认) | 本机 | `docker run` | bind-mount `out/` | `make run` |
+| `k8s` | 离线集群(当前 kubectl context) | 渲染自包含 yaml → `kubectl apply` | Pod `emptyDir` | `make run MODE=k8s` |
+
+- **docker**:产物落宿主 `out/<run-id>/`,`make parse` 照旧。
+- **k8s**:`run.sh` 渲染 **Secret + ConfigMap(内嵌 `sweep.sh`/`parse.py`)+ Job**(形态对齐
+  modeldoctor:Job 名 `run-<id>`、容器 `runner`、labels `app.kubernetes.io/name: modeldoctor-run`)
+  → `kubectl apply` → `kubectl logs -f job/run-<id>` 看 sweep + 末尾 SLO 表。**头条结果在日志**;
+  产物在 Pod `emptyDir`(随 Pod 生命周期,要留存另挂 PVC)。tokenizer 在 Pod 内在线拉。
+  清理:`kubectl -n <ns> delete job/run-<id> configmap/run-<id> secret/run-<id>`。`smoke` 仅 docker。
+
+`config.env` 里 `MODE=docker|k8s`(+ `K8S_NAMESPACE`),或 `make run MODE=k8s` 临时切。
+
+---
+
 ## 0 · 前置事实(镜像里有什么)
 
 | 项 | 值 |
