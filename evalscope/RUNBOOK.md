@@ -37,6 +37,15 @@ make parse      # 聚合去冷轮 + 池化,找 SLO 拐点(默认解析最新一�
 
 `config.env` 里 `MODE=docker|k8s`(+ `K8S_NAMESPACE`),或 `make run MODE=k8s` 临时切。
 
+**私有镜像仓库**(如华为 SWR):集群拉镜像要认证,先在目标 namespace 建 docker-registry
+密钥,再设 `K8S_IMAGE_PULL_SECRET`(渲染进 Job 的 `imagePullSecrets`):
+```bash
+kubectl -n <ns> create secret docker-registry swr-cred \
+  --docker-server=swr.cn-north-4.myhuaweicloud.com --docker-username=<u> --docker-password=<p>
+# config.env: K8S_IMAGE_PULL_SECRET=swr-cred;IMG 指向该仓库的 md-runner-evalscope:<tag>
+```
+不设则不注入 `imagePullSecrets`(公有镜像匿名拉即可)。
+
 ---
 
 ## 0 · 前置事实(镜像里有什么)
