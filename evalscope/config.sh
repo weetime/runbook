@@ -43,6 +43,14 @@ done
 TPL=$(ask "模板名" "inference-baseline")
 [ -f "templates/$TPL.env" ] || { echo "✗ 模板不存在:templates/$TPL.env" >&2; exit 1; }
 
+echo
+echo "── 落地模式 ──"
+echo "  docker) 离线单机,docker run"
+echo "  k8s)    离线集群,渲染 yaml → kubectl apply(跑在当前 kubectl context)"
+MODE=$(ask "模式 docker/k8s" "docker")
+[ "$MODE" = docker ] || [ "$MODE" = k8s ] || { echo "✗ MODE 只能 docker/k8s" >&2; exit 1; }
+[ "$MODE" = k8s ] && NS=$(ask "k8s namespace" "default")
+
 {
   echo "# evalscope runbook · config.sh 生成 —— 含真实端点/密钥,勿入库(见 .gitignore)"
   echo "URL=\"$URL\""
@@ -56,6 +64,8 @@ TPL=$(ask "模板名" "inference-baseline")
     echo "TOKENIZER_SOURCE=$TSRC"
   fi
   echo "TEMPLATE=$TPL"
+  echo "MODE=$MODE"
+  [ "$MODE" = k8s ] && echo "K8S_NAMESPACE=$NS"
 } > "$CFG"
 
 echo
