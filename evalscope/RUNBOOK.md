@@ -117,7 +117,7 @@ SLO 默认从 run 目录的 `run.env` 读,也可覆盖:`TTFT_SLO=1500 ITL_SLO=20
 
 1. **tokenizer 要真实文件**:在线模式白名单只拉 tokenizer(非权重、非几百字节 metadata);缺 `chat_template` 要补;否则 token 数不出、TPOT/吞吐全错。
 2. **走 runner 默认入口 `python -m runner`**(run.sh 不再覆盖 entrypoint):容器内 `sweep.sh` 直接调 `evalscope`(在 PATH 上),runner 负责读 `MD_ARGV`、tee 日志、写 `result.json`/`meta.json`——与在线 modeldoctor 同布局。
-3. **数据集用镜像内置路径**(`lib.sh` 的 `map_dataset` 已按 `DATASET` 映射),无需本机再下。
+3. **数据集用镜像内置路径**(`sweep.sh` 已按 `DATASET` 映射到镜像内路径),无需本机再下。
 4. `PARALLEL` 与 `NUMBER` **逐元素配对**,不是笛卡尔积。
 5. **每次 run 独立目录**:互不覆盖、可横向对比;清历史用 `make clean`。
 6. **聚合别对每轮 p95 取中位**(会非单调)→ 丢冷轮 + 池化 warm 逐请求样本。
