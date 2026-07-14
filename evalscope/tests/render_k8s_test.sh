@@ -28,8 +28,15 @@ grep -q 'parse.py: |' <<<"$Y" || { echo "FAIL: ConfigMap 未嵌 parse.py"; exit 
 grep -q 'OPENAI_API_KEY' <<<"$Y" || { echo "FAIL: Secret 缺 OPENAI_API_KEY"; exit 1; }
 # key 走 Secret,不得出现在 Job env 明文
 grep -q 'sk-secret-xyz' <<<"$Y" && grep -q 'workingDir' <<<"$Y" || true
+# 默认不带 imagePullSecrets
+grep -q 'imagePullSecrets' <<<"$Y" && { echo "FAIL: 未设 K8S_IMAGE_PULL_SECRET 时不应出现 imagePullSecrets"; exit 1; }
+# 设了才带,且带对名字
+Y2="$(K8S_IMAGE_PULL_SECRET=swr-cred render_k8s_yaml)"
+grep -q 'imagePullSecrets: \[{name: "swr-cred"}\]' <<<"$Y2" || { echo "FAIL: K8S_IMAGE_PULL_SECRET 未渲染 imagePullSecrets"; exit 1; }
+
 if command -v kubectl >/dev/null 2>&1; then
   kubectl apply --dry-run=client -f - <<<"$Y" >/dev/null || { echo "FAIL: kubectl dry-run 不过"; exit 1; }
+  kubectl apply --dry-run=client -f - <<<"$Y2" >/dev/null || { echo "FAIL: 带 pull-secret 的 yaml dry-run 不过"; exit 1; }
   echo "(kubectl client dry-run 通过)"
 fi
 echo "render_k8s_yaml OK"

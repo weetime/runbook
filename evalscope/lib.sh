@@ -48,6 +48,9 @@ render_k8s_yaml() {
   for v in "${SWEEP_ENV[@]}"; do
     envblock+="        - {name: $v, value: $(_yaml_dq "${!v-}")}"$'\n'
   done
+  # 私有仓库(如华为 SWR)拉镜像需 imagePullSecret;设了 K8S_IMAGE_PULL_SECRET 才注入。
+  local ips=""
+  [ -n "${K8S_IMAGE_PULL_SECRET:-}" ] && ips="      imagePullSecrets: [{name: $(_yaml_dq "$K8S_IMAGE_PULL_SECRET")}]"$'\n'
   local script="$(sed 's/^/    /' sweep.sh)"
   local parse="$(sed 's/^/    /' parse.py)"
   cat <<YAML
@@ -87,7 +90,7 @@ spec:
       labels: {$L1, $L2}
     spec:
       restartPolicy: Never
-      containers:
+${ips}      containers:
       - name: runner
         image: $IMG
         imagePullPolicy: IfNotPresent
