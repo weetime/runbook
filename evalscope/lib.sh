@@ -5,7 +5,8 @@
 export RB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 引导镜像:容器内跑 runbook 的 python(sweep 调 evalscope + parse.py)。与被测镜像同一个。
-export BOOT_IMG="${BOOT_IMG:-ghcr.io/weetime/md-runner-evalscope:b6a824c-sharegpt2}"
+# 须 ≥ #358(含 LocalWriter/select_sink),否则 python -m runner 缺 S3 会崩;0afe9b07 = #358 合并点。
+export BOOT_IMG="${BOOT_IMG:-ghcr.io/weetime/md-runner-evalscope:0afe9b07}"
 
 # 引导镜像缺则拉取。
 ensure_boot_image() {

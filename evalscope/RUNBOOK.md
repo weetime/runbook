@@ -22,7 +22,7 @@ make parse      # 聚合去冷轮 + 池化,找 SLO 拐点(默认解析最新一�
 
 | 项 | 值 |
 |---|---|
-| 镜像 | `ghcr.io/weetime/md-runner-evalscope:b6a824c-sharegpt2`(evalscope 1.7.0,`[perf]` extra) |
+| 镜像 | `ghcr.io/weetime/md-runner-evalscope:0afe9b07`(evalscope 1.7.0,`[perf]` extra;须 ≥ #358 含 LocalWriter,离线 `python -m runner` 才能写本地目录) |
 | 内置 ShareGPT | `/opt/evalscope-datasets/sharegpt/common_{en,zh}_70k.jsonl`(70k 真实多轮) |
 | 其它内置集 | `/opt/evalscope-datasets/longalpaca.txt`、`/opt/evalscope-datasets/openqa/open_qa.jsonl` |
 | 合成集 | `random`(无文件,按 token 数精确生成 prompt,需 tokenizer) |
