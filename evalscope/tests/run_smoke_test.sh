@@ -31,6 +31,7 @@ PATH="$TMP:$PATH" CONFIG="$TMP/config.env" ./run.sh smoke
 grep -q -- 'MD_ARGV' "$TMP/argv.log" || { echo "FAIL: 缺 MD_ARGV(应走 runner 入口)"; exit 1; }
 grep -q -- '/rb/sweep.sh' "$TMP/argv.log" || { echo "FAIL: 未挂 sweep.sh"; exit 1; }
 grep -q -- 'MD_OUTPUT_DIR' "$TMP/argv.log" || { echo "FAIL: 缺 MD_OUTPUT_DIR sink"; exit 1; }
+grep -q -- 'PYTHONPATH=/app' "$TMP/argv.log" || { echo "FAIL: 缺 PYTHONPATH=/app(-w /work 下 python -m runner 找不到包)"; exit 1; }
 grep -q -- 'SMOKE=1' "$TMP/argv.log" || { echo "FAIL: smoke 应置 SMOKE=1"; exit 1; }
 if grep -q -- '--entrypoint' "$TMP/argv.log"; then echo "FAIL: 不应再覆盖 entrypoint"; exit 1; fi
 echo "run.sh docker OK"

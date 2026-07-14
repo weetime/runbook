@@ -36,9 +36,11 @@ fi
 SWEEP_ENV=(URL MODEL AXIS DATASET PARALLEL NUMBER PROMPT_LENS PROMPT_MIN PROMPT_MAX
   MIN_TOKENS MAX_TOKENS ROUNDS SEED TTFT_SLO ITL_SLO TEMPLATE
   TOKENIZER_MODE TOKENIZER_ID TOKENIZER_SOURCE HF_ENDPOINT)
+# PYTHONPATH=/app:runner 包在镜像 /app 下;我们用 -w /work 改了 cwd(让 MD_OUTPUT_FILES
+# 相对路径落到挂载卷),故显式加 /app 到模块搜索路径,否则 `python -m runner` 找不到包。
 ENVARGS=(-e MD_BENCHMARK_ID="$RUN_ID" -e MD_ARGV='["bash","/rb/sweep.sh"]'
   -e MD_OUTPUT_DIR=/work/out -e MD_OUTPUT_FILES="{\"summary.csv\":\"out/$RUN_ID/summary.csv\"}"
-  -e OPENAI_API_KEY="$KEY" -e SMOKE="$SMOKE")
+  -e PYTHONPATH=/app -e OPENAI_API_KEY="$KEY" -e SMOKE="$SMOKE")
 for v in "${SWEEP_ENV[@]}"; do ENVARGS+=(-e "$v=${!v-}"); done
 
 echo "被测端点: $URL"; echo "模型:     $MODEL"

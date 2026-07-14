@@ -45,6 +45,7 @@ _evalscope() {
 
 if [ "${SMOKE:-0}" = 1 ]; then
   echo "==> 冒烟:parallel=4 number=8(模板轴=$AXIS)"
+  rm -rf "$RDIR/smoke"     # 固定名冒烟目录:清旧的 benchmark_data.db,否则 evalscope 见旧库拒跑
   if [ "$AXIS" = prompt_len ]; then
     L="$(printf '%s\n' $PROMPT_LENS | sort -n | head -1)"
     _evalscope "$RDIR/smoke" --parallel 4 --number 8 --min-prompt-length "$L" --max-prompt-length "$L"
