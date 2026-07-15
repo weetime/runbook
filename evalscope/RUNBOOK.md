@@ -62,6 +62,10 @@ kubectl -n <ns> create secret docker-registry swr-cred \
 
 ## 1 · 配置:`make config`(生成 config.env + 选模板)
 
+> 也可用图形化向导:浏览器打开 **[`wizard.html`](./wizard.html)**(离线单文件,双击即用)——
+> 粘贴一条 `curl` 自动解析端点、选场景模板/落地模式,一键生成 `config.env` 和运行计划。
+> 纯浏览器本地,不联网、不上传。
+
 向导逐项引导,回车用默认:
 
 - **端点**:URL(完整 `/v1/chat/completions`)、MODEL(服务端注册名)、KEY(无则 `EMPTY`)。

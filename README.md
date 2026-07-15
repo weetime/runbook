@@ -15,6 +15,9 @@
 
 每套 runbook 都是 `make` 驱动:
 
+> 懒得敲?浏览器打开 [`evalscope/wizard.html`](./evalscope/wizard.html)(离线单文件):粘贴 `curl`
+> 自动解析端点、选模板/模式,一键生成 `config.env` 和运行计划。
+
 ```bash
 cd evalscope
 make config     # 交互填端点 / tokenizer / 选模板 → 生成 config.env

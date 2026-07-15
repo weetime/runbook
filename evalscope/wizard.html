@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>evalscope 压测配置台</title>
+</head>
+<body>
+<style>
+  :root{
+    --bg0:#05070b; --bg1:#0a0f18; --bg2:#0d1420;
+    --panel:rgba(18,26,38,.62); --panel-solid:#111926;
+    --brd:rgba(255,255,255,.09); --brd-2:rgba(255,255,255,.14); --hi:rgba(255,255,255,.05);
+    --ink:#eef3fa; --muted:#9db0c6; --faint:#5f7089;
+    --acc:#2ee6c9; --acc2:#3bc9ff; --violet:#9a8cff;
+    --slo:#f7b45a; --good:#43dc93;
+    --field:rgba(255,255,255,.045); --field-brd:rgba(255,255,255,.11);
+    --code-bg:rgba(4,8,14,.66); --code-ink:#d4e2f2; --code-faint:#67788f;
+    --grad:linear-gradient(135deg,#2ee6c9 0%,#3bc9ff 55%,#7aa8ff 100%);
+    --grad-soft:linear-gradient(135deg,rgba(46,230,201,.16),rgba(59,201,255,.14));
+    --glow:0 8px 30px rgba(0,0,0,.5);
+    --r:16px; --r-sm:11px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; color:var(--ink); background:var(--bg0);
+    font:15px/1.6 -apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  .mono,pre,code,input.mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace}
+
+  /* ambient background */
+  .bg{position:fixed;inset:0;z-index:-2;background:
+     radial-gradient(1100px 640px at 78% -8%,rgba(46,230,201,.14),transparent 60%),
+     radial-gradient(900px 620px at 8% 4%,rgba(59,201,255,.12),transparent 58%),
+     radial-gradient(1200px 800px at 60% 118%,rgba(154,140,255,.12),transparent 60%),
+     linear-gradient(180deg,var(--bg1),var(--bg0) 60%)}
+  .bg:after{content:"";position:absolute;inset:0;opacity:.5;
+     background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+     background-size:52px 52px;mask-image:radial-gradient(ellipse 90% 70% at 50% 30%,#000 40%,transparent 100%)}
+  .orb{position:fixed;z-index:-1;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none}
+  .orb.a{width:420px;height:420px;top:-120px;right:-60px;background:radial-gradient(circle,rgba(46,230,201,.5),transparent 70%);animation:drift 26s ease-in-out infinite}
+  .orb.b{width:380px;height:380px;bottom:-140px;left:-80px;background:radial-gradient(circle,rgba(154,140,255,.42),transparent 70%);animation:drift 32s ease-in-out infinite reverse}
+  @keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,30px)}}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:30px 22px 72px}
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:1fr;gap:26px;align-items:center;margin-bottom:30px}
+  @media(min-width:900px){.hero{grid-template-columns:1.05fr .95fr;gap:34px}}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--acc);font-weight:700}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc);animation:blink 2.4s ease-in-out infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  h1.title{margin:16px 0 14px;font-size:clamp(34px,5.4vw,56px);line-height:1.02;letter-spacing:-.025em;font-weight:800;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;text-wrap:balance}
+  .lede{margin:0;font-size:clamp(15px,1.7vw,17.5px);color:var(--muted);max-width:46ch;line-height:1.62}
+  .lede b{color:var(--ink);font-weight:600}
+  .hero-privacy{display:inline-flex;gap:9px;align-items:center;margin-top:20px;padding:9px 14px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--brd);color:var(--muted);font-size:12.5px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .hero-privacy svg{color:var(--acc);flex:none}
+  .hero-privacy b{color:var(--ink);font-weight:600}
+
+  /* instrument panel */
+  .scope{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--brd);
+    background:linear-gradient(160deg,rgba(20,30,44,.7),rgba(9,14,22,.7));box-shadow:var(--glow);
+    height:clamp(232px,40vw,300px)}
+  .scope canvas{display:block;width:100%;height:100%}
+  .scope .cap{position:absolute;left:16px;top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .scope .cap b{color:var(--acc)}
+  .scope .legend{position:absolute;right:16px;top:14px;display:flex;gap:14px;font-size:11px;color:var(--muted)}
+  .scope .legend i{display:inline-block;width:16px;height:2px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+  /* console layout */
+  .console{display:grid;grid-template-columns:1fr;gap:20px}
+  @media(min-width:940px){.console{grid-template-columns:minmax(0,1.24fr) minmax(0,1fr);align-items:start}
+    .out-col{position:sticky;top:20px}}
+
+  .panel{position:relative;background:var(--panel);border:1px solid var(--brd);border-radius:var(--r);
+    padding:20px;margin-bottom:18px;backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
+    box-shadow:var(--glow);animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+  .panel:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg,var(--hi),transparent 40%)}
+  .panel > *{position:relative}
+  .panel:nth-child(1){animation-delay:.04s}.panel:nth-child(2){animation-delay:.10s}
+  .panel:nth-child(3){animation-delay:.16s}.panel:nth-child(4){animation-delay:.22s}
+  .panel:nth-child(5){animation-delay:.28s}
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+  .lbl{display:flex;align-items:center;gap:11px;margin:0 0 15px}
+  .num{position:relative;width:26px;height:26px;flex:none;border-radius:8px;display:grid;place-items:center;
+    font-size:12px;font-weight:800;color:#05221e;background:var(--grad);box-shadow:0 0 18px rgba(46,230,201,.35)}
+  .lbl h2{margin:0;font-size:15px;letter-spacing:.005em;font-weight:650}
+  .lbl .hint{margin-left:auto;font-size:11.5px;color:var(--faint)}
+
+  label.field{display:block;margin-bottom:13px}
+  label.field:last-child{margin-bottom:0}
+  .field > span{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
+  input[type=text],textarea,select{width:100%;font-size:13.5px;color:var(--ink);background:var(--field);
+    border:1px solid var(--field-brd);border-radius:var(--r-sm);padding:11px 13px;outline:none;
+    transition:border-color .15s,box-shadow .15s,background .15s}
+  input[type=text],select{height:42px}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239db0c6' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+  input::placeholder,textarea::placeholder{color:var(--faint)}
+  input:focus,textarea:focus,select:focus{border-color:var(--acc);background:rgba(46,230,201,.05);box-shadow:0 0 0 4px rgba(46,230,201,.12)}
+  textarea{resize:vertical;min-height:112px;line-height:1.55}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:540px){.row2{grid-template-columns:1fr}}
+
+  button{font:inherit;cursor:pointer;border:1px solid transparent;border-radius:var(--r-sm);transition:transform .06s,box-shadow .18s,border-color .15s,background .15s,color .15s}
+  button:active{transform:translateY(1px)}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+  .btn{height:42px;padding:0 18px;color:#052420;font-weight:700;font-size:13.5px;background:var(--grad);
+    display:inline-flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(46,230,201,.28)}
+  .btn:hover{box-shadow:0 8px 30px rgba(46,230,201,.5)}
+  .btn svg{stroke:#052420}
+
+  .parsed{font-size:12.5px;color:var(--muted);min-height:18px;flex:1}
+  .parsed b{color:var(--good)}.parsed .miss{color:var(--slo)}
+
+  .seg{display:inline-flex;background:var(--field);border:1px solid var(--field-brd);border-radius:12px;padding:4px;gap:4px;position:relative}
+  .seg button{height:34px;padding:0 16px;background:transparent;color:var(--muted);font-size:13px;font-weight:600;border-radius:9px}
+  .seg button[aria-pressed="true"]{background:var(--grad);color:#052420;box-shadow:0 4px 16px rgba(46,230,201,.3)}
+
+  .tcards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:600px){.tcards{grid-template-columns:1fr}}
+  .tcard{text-align:left;background:var(--field);border:1px solid var(--field-brd);border-radius:13px;padding:14px;
+    display:flex;flex-direction:column;gap:8px;color:inherit;position:relative;overflow:hidden}
+  .tcard:hover{border-color:var(--brd-2);transform:translateY(-2px);box-shadow:0 12px 26px rgba(0,0,0,.4)}
+  .tcard[aria-pressed="true"]{border-color:transparent;background:var(--grad-soft);
+    box-shadow:0 0 0 1px var(--acc),0 12px 34px rgba(46,230,201,.22)}
+  .tcard[aria-pressed="true"]:after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(120px 80px at 100% 0,rgba(46,230,201,.16),transparent 70%)}
+  .tname{font-weight:700;font-size:14px;font-family:ui-monospace,Menlo,monospace;letter-spacing:-.01em;color:var(--ink)}
+  .tdesc{font-size:12px;color:var(--muted);line-height:1.5}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:1px}
+  .tag{font-size:10.5px;letter-spacing:.02em;padding:3px 8px;border-radius:999px;border:1px solid var(--field-brd);color:var(--muted);white-space:nowrap;background:rgba(255,255,255,.02)}
+  .tag.axis{border-color:rgba(46,230,201,.5);color:var(--acc)}
+  .tag.slo{border-color:rgba(247,180,90,.45);color:var(--slo)}
+
+  .advanced{margin-top:14px;border-top:1px solid var(--brd);padding-top:14px}
+  .advanced summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:600;list-style:none;user-select:none}
+  .advanced summary::-webkit-details-marker{display:none}
+  .advanced summary:before{content:"▸";color:var(--faint);margin-right:7px;display:inline-block;transition:transform .15s}
+  .advanced[open] summary:before{transform:rotate(90deg)}
+  .k8s-only{display:none}
+  .note{font-size:12px;color:var(--faint);line-height:1.55;margin-top:3px}
+
+  /* output */
+  .out{background:linear-gradient(180deg,rgba(18,26,38,.7),rgba(10,15,23,.7));border:1px solid var(--brd);border-radius:var(--r);
+    box-shadow:var(--glow);overflow:hidden;margin-bottom:18px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    animation:rise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:.2s}
+  .out-head{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:1px solid var(--brd)}
+  .dots{display:flex;gap:6px;margin-right:4px}
+  .dots i{width:10px;height:10px;border-radius:50%;display:block}
+  .dots i:nth-child(1){background:#ff5f57}.dots i:nth-child(2){background:#febc2e}.dots i:nth-child(3){background:#28c840}
+  .fname{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .copy{height:31px;padding:0 13px;background:var(--field);border:1px solid var(--field-brd);color:var(--muted);
+    font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:9px}
+  .copy:hover{color:var(--acc);border-color:var(--acc)}
+  pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);padding:15px 16px;font-size:12.5px;line-height:1.7;
+    overflow-x:auto;white-space:pre;letter-spacing:.1px}
+  pre.code .c{color:var(--code-faint)}
+  pre.code .k{color:var(--acc);font-weight:600}
+  pre.code .s{color:#e5c07b}
+  .plan-prose{padding:15px 16px;font-size:13px;line-height:1.68;color:var(--ink);border-bottom:1px solid var(--brd)}
+  .plan-prose .em{color:var(--slo);font-weight:600}.plan-prose .ax{color:var(--acc);font-weight:600}
+  .plan-prose b{color:var(--ink)}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translate(-50%,16px);opacity:0;pointer-events:none;z-index:50;
+    background:rgba(10,15,23,.92);color:var(--ink);border:1px solid var(--acc);font-size:13px;font-weight:600;
+    padding:11px 20px;border-radius:999px;box-shadow:0 10px 40px rgba(46,230,201,.28);backdrop-filter:blur(10px);
+    transition:opacity .22s,transform .22s}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .foot{margin-top:32px;color:var(--faint);font-size:12px;text-align:center;line-height:1.7}
+  .foot code{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="bg"></div><div class="orb a"></div><div class="orb b"></div>
+
+<div class="wrap">
+  <!-- HERO -->
+  <header class="hero">
+    <div>
+      <div class="eyebrow"><span class="dot"></span>runbook · evalscope</div>
+      <h1 class="title">压测配置台</h1>
+      <p class="lede">粘贴一条 <b>curl</b> 自动解析端点,选场景模板与落地模式,<b>一键生成</b> <span class="mono" style="color:var(--acc)">config.env</span> 与运行计划 —— 直连你的 OpenAI 兼容推理服务,找 SLO 拐点。</p>
+      <div class="hero-privacy">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span><b>纯浏览器本地生成</b> · 不联网 · 不上传</span>
+      </div>
+    </div>
+    <div class="scope">
+      <div class="cap">吞吐 × 并发 · 找 <b>SLO 拐点</b></div>
+      <div class="legend"><span><i style="background:var(--acc)"></i>吞吐</span><span><i style="background:var(--slo)"></i>TTFT p95</span></div>
+      <canvas id="scope"></canvas>
+    </div>
+  </header>
+
+  <!-- CONSOLE -->
+  <div class="console">
+    <div class="in-col">
+
+      <section class="panel">
+        <div class="lbl"><span class="num">1</span><h2>粘贴 curl</h2><span class="hint">自动解析端点 · 可选</span></div>
+        <textarea id="curl" class="mono" spellcheck="false" placeholder='curl http://HOST:PORT/v1/chat/completions \
+  -H "Authorization: Bearer sk-xxx" \
+  -d &#39;{"model":"your-model","messages":[...]}&#39;'></textarea>
+        <div style="display:flex;gap:11px;align-items:center;margin-top:12px">
+          <button class="btn" id="parse"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>解析并填充</button>
+          <div class="parsed" id="parsed"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="lbl"><span class="num">2</span><h2>被测端点</h2><span class="hint">OpenAI 兼容</span></div>
+        <label class="field"><span>URL · 完整 /v1/chat/completions</span>
+          <input type="text" id="URL" class="mono" placeholder="http://10.0.0.1:8000/v1/chat/completions"></label>
+        <div class="row2">
+          <label class="field"><span>MODEL · 服务端注册名</span>
+            <input type="text" id="MODEL" class="mono" placeholder="Qwen2.5-0.5B-Instruct"></label>
+          <label class="field"><span>KEY · 无则 EMPTY</span>
+            <input type="text" id="KEY" class="mono" placeholder="EMPTY"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="lbl"><span class="num">3</span><h2>Tokenizer</h2><span class="hint">数 token 用,不是权重</span></div>
+        <div class="seg" role="group" aria-label="tokenizer 模式" style="margin-bottom:14px">
+          <button data-tok="online" aria-pressed="true">在线拉取</button>
+          <button data-tok="offline" aria-pressed="false">离线目录</button>
+        </div>
+        <div id="tok-online">
+          <div class="row2">
+            <label class="field"><span>模型仓库 id</span>
+              <input type="text" id="TOKENIZER_ID" class="mono" placeholder="Qwen/Qwen2.5-0.5B-Instruct"></label>
+            <label class="field"><span>拉取源</span>
+              <select id="TOKENIZER_SOURCE"><option value="modelscope">modelscope</option><option value="hf">hf · hf-mirror</option></select></label>
+          </div>
+          <div class="note">首跑在容器内只拉 tokenizer 白名单文件到 <span class="mono">./tok</span> 缓存,不下权重;需含 <span class="mono">chat_template</span>(用 Instruct/Chat 版)。</div>
+        </div>
+        <div id="tok-offline" style="display:none">
+          <label class="field"><span>本机 tokenizer 目录(绝对路径)</span>
+            <input type="text" id="TOKENIZER_PATH" class="mono" placeholder="/abs/path/to/tokenizer"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="lbl"><span class="num">4</span><h2>场景模板</h2><span class="hint">压测参数自动填充</span></div>
+        <div class="tcards" id="tcards"></div>
+      </section>
+
+      <section class="panel">
+        <div class="lbl"><span class="num">5</span><h2>落地模式</h2></div>
+        <div class="seg" role="group" aria-label="落地模式" style="margin-bottom:14px">
+          <button data-mode="docker" aria-pressed="true">docker · 本机</button>
+          <button data-mode="k8s" aria-pressed="false">k8s · 离线集群</button>
+        </div>
+        <div class="k8s-only" id="k8sFields">
+          <div class="row2">
+            <label class="field"><span>K8S_NAMESPACE</span>
+              <input type="text" id="K8S_NAMESPACE" class="mono" placeholder="default"></label>
+            <label class="field"><span>拉取密钥 · 私有仓库才需</span>
+              <input type="text" id="K8S_IMAGE_PULL_SECRET" class="mono" placeholder="swr-cred(可留空)"></label>
+          </div>
+          <div class="note">私有仓库(如华为 SWR)先建密钥:<span class="mono">kubectl -n &lt;ns&gt; create secret docker-registry swr-cred --docker-server=… --docker-username=… --docker-password=…</span></div>
+        </div>
+        <details class="advanced">
+          <summary>高级 · 覆盖镜像 IMG</summary>
+          <label class="field" style="margin-top:13px"><span>IMG · 留空用内置默认(须 ≥ #358)</span>
+            <input type="text" id="IMG" class="mono" placeholder="swr.cn-north-4.myhuaweicloud.com/inference-engines/md-runner-evalscope:0afe9b07"></label>
+        </details>
+      </section>
+    </div>
+
+    <div class="out-col">
+      <div class="out">
+        <div class="out-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname mono">config.env</span><span class="spacer"></span><button class="copy" data-copy="cfg">复制</button></div>
+        <pre class="code" id="cfg"></pre>
+      </div>
+      <div class="out">
+        <div class="out-head"><span class="dots"><i></i><i></i><i></i></span><span class="fname">运行计划</span><span class="spacer"></span><button class="copy" data-copy="cmd">复制命令</button></div>
+        <div class="plan-prose" id="planProse"></div>
+        <pre class="code" id="cmd"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    宿主只需 <code>bash + make + docker</code>(k8s 另需 <code>kubectl</code>)· 详见 <code>evalscope/RUNBOOK.md</code><br>
+    存好 <code>config.env</code> 后:<code>make smoke → make run → make parse</code>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ---------- SLO 拐点示波动画 ---------- */
+(function scope(){
+  const cv = $("scope"); if(!cv) return;
+  const ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+  let W=0,H=0,DPR=1;
+  function resize(){
+    const r = cv.parentElement.getBoundingClientRect();
+    DPR = Math.min(devicePixelRatio||1, 2);
+    W = Math.max(1,r.width); H = Math.max(1,r.height);
+    cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize(); addEventListener("resize", resize);
+  const PADL=44, PADR=20, PADT=44, PADB=34;
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    const x0=PADL, x1=W-PADR, y0=H-PADB, y1=PADT;
+    // grid
+    ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){
+      const gy = y1 + (y0-y1)*i/4;
+      ctx.strokeStyle="rgba(255,255,255,.05)"; ctx.beginPath(); ctx.moveTo(x0,gy); ctx.lineTo(x1,gy); ctx.stroke();
+    }
+    for(let i=0;i<=5;i++){
+      const gx = x0 + (x1-x0)*i/5;
+      ctx.strokeStyle="rgba(255,255,255,.035)"; ctx.beginPath(); ctx.moveTo(gx,y1); ctx.lineTo(gx,y0); ctx.stroke();
+    }
+    const breathe = reduce?0:Math.sin(t/1400)*0.02;
+    const N=90, pts=[];
+    // throughput: saturating; latency: rising exponentially
+    const tp=[], lat=[];
+    for(let i=0;i<=N;i++){
+      const x=i/N;
+      const thr = (1-Math.exp(-3.1*(x+breathe)))/(1-Math.exp(-3.1));
+      const la  = Math.pow(x,2.15)*0.92 + 0.04;
+      tp.push(thr); lat.push(la);
+    }
+    const px=x=>x0+(x1-x0)*x, py=v=>y0-(y0-y1)*v;
+    // SLO threshold (dashed)
+    const slo=0.62;
+    ctx.setLineDash([5,5]); ctx.strokeStyle="rgba(247,180,90,.5)"; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(x0,py(slo)); ctx.lineTo(x1,py(slo)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="rgba(247,180,90,.75)"; ctx.font="10px ui-monospace,monospace";
+    ctx.fillText("SLO", x1-30, py(slo)-6);
+    // knee: where latency crosses slo
+    let knee=0; for(let i=0;i<=N;i++){ if(lat[i]>=slo){ knee=i/N; break; } }
+    // latency curve (amber)
+    ctx.strokeStyle="rgba(247,180,90,.85)"; ctx.lineWidth=2; ctx.beginPath();
+    for(let i=0;i<=N;i++){ const X=px(i/N),Y=py(lat[i]); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke();
+    // throughput curve (teal, glowing) + area
+    const grad=ctx.createLinearGradient(x0,0,x1,0); grad.addColorStop(0,"#2ee6c9"); grad.addColorStop(1,"#3bc9ff");
+    ctx.save();
+    const ag=ctx.createLinearGradient(0,y1,0,y0); ag.addColorStop(0,"rgba(46,230,201,.22)"); ag.addColorStop(1,"rgba(46,230,201,0)");
+    ctx.fillStyle=ag; ctx.beginPath(); ctx.moveTo(px(0),y0);
+    for(let i=0;i<=N;i++) ctx.lineTo(px(i/N),py(tp[i])); ctx.lineTo(px(1),y0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle=grad; ctx.lineWidth=2.6; ctx.shadowColor="rgba(46,230,201,.6)"; ctx.shadowBlur=12;
+    ctx.beginPath(); for(let i=0;i<=N;i++){ const X=px(i/N),Y=py(tp[i]); i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);} ctx.stroke();
+    ctx.shadowBlur=0;
+    // knee marker pulse
+    const kx=px(knee), ky=py(slo);
+    const pulse = reduce?0.5:(Math.sin(t/500)+1)/2;
+    ctx.beginPath(); ctx.arc(kx,ky,7+pulse*5,0,7); ctx.fillStyle="rgba(46,230,201,"+(0.16-pulse*0.1)+")"; ctx.fill();
+    ctx.beginPath(); ctx.arc(kx,ky,4.5,0,7); ctx.fillStyle="#2ee6c9"; ctx.shadowColor="#2ee6c9"; ctx.shadowBlur=14; ctx.fill(); ctx.shadowBlur=0;
+    ctx.fillStyle="rgba(238,243,250,.92)"; ctx.font="600 11px -apple-system,system-ui,sans-serif";
+    ctx.fillText("◀ 拐点", kx+12, ky-8);
+    // axes labels
+    ctx.fillStyle="rgba(159,176,198,.7)"; ctx.font="10px -apple-system,system-ui,sans-serif";
+    ctx.fillText("并发 →", x1-46, y0+22);
+    ctx.save(); ctx.translate(14,(y0+y1)/2); ctx.rotate(-Math.PI/2); ctx.fillText("吞吐 tok/s", -28,0); ctx.restore();
+  }
+  if(reduce){ draw(0); }
+  else{ let raf; (function loop(ts){ draw(ts||0); raf=requestAnimationFrame(loop); })(); }
+})();
+
+/* ---------- 场景模板(与 evalscope/templates/*.env 一致) ---------- */
+const TEMPLATES = [
+  {name:"inference-baseline", axis:"parallel", dataset:"share_gpt_en", desc:"short 口径 TTFT/TPOT 基线并发扫描", def:true,
+   PARALLEL:"4 8 16 32", NUMBER:"60 80 120 160", ROUNDS:3, TTFT:1500, ITL:200},
+  {name:"chat-slo", axis:"parallel", dataset:"share_gpt_en", desc:"客服 SLO,找满足 SLO 的最大并发",
+   PARALLEL:"4 8 16 32 48", NUMBER:"60 80 120 160 200", ROUNDS:3, TTFT:1500, ITL:200},
+  {name:"throughput-max", axis:"parallel", dataset:"share_gpt_en", desc:"高并发压满、放宽 SLO,测峰值吞吐与饱和点",
+   PARALLEL:"16 32 64 128", NUMBER:"160 320 640 1280", ROUNDS:3, TTFT:8000, ITL:500},
+  {name:"long-context-kv", axis:"parallel", dataset:"longalpaca", desc:"8K 长 prompt 冷/暖 A/B,看 KV / 前缀缓存命中",
+   PARALLEL:"1 8 16 32", NUMBER:"30 80 120 160", ROUNDS:3, TTFT:3000, ITL:250, window:"8000–9000 字符"},
+  {name:"context-length", axis:"prompt_len", dataset:"random", desc:"输入长度敏感性 1K/8K/32K/128K,看衰减",
+   PROMPT_LENS:"1024 8192 32768 131072", PARALLEL:8, NUMBER:64, ROUNDS:3, TTFT:5000, ITL:300},
+];
+const state = { tokMode:"online", mode:"docker", template: TEMPLATES.find(t=>t.def).name };
+
+function renderCards(){
+  const el=$("tcards"); el.innerHTML="";
+  for(const t of TEMPLATES){
+    const b=document.createElement("button"); b.className="tcard"; b.type="button";
+    b.setAttribute("aria-pressed", String(t.name===state.template));
+    const sweep = t.axis==="prompt_len" ? `长度 ${t.PROMPT_LENS} tok` : `并发 ${t.PARALLEL}`;
+    b.innerHTML =
+      `<div class="tname">${t.name}</div><div class="tdesc">${t.desc}</div>`+
+      `<div class="tags"><span class="tag axis">${t.axis==="prompt_len"?"轴·输入长度":"轴·并发"}</span>`+
+      `<span class="tag">${t.dataset}</span><span class="tag">${sweep}</span>`+
+      `<span class="tag slo">TTFT≤${t.TTFT} · ITL≤${t.ITL}</span></div>`;
+    b.onclick=()=>{ state.template=t.name; renderCards(); render(); };
+    el.appendChild(b);
+  }
+}
+
+function parseCurl(raw){
+  const text=raw.replace(/\\\r?\n/g," "); const out={}; let m;
+  if((m=text.match(/https?:\/\/[^\s'"\\]+/))) out.url=m[0];
+  if((m=text.match(/authorization:\s*bearer\s+([^\s'"\\]+)/i))) out.key=m[1];
+  if((m=text.match(/["']model["']\s*:\s*["']([^"']+)["']/))) out.model=m[1];
+  return out;
+}
+
+function buildConfig(){
+  const v=id=>($(id).value||"").trim(); const L=[];
+  L.push('# evalscope runbook · wizard 生成 —— 含真实端点/密钥,勿入库(见 .gitignore)');
+  L.push(`URL="${v("URL")}"`); L.push(`MODEL="${v("MODEL")}"`); L.push(`KEY="${v("KEY")||"EMPTY"}"`);
+  if(state.tokMode==="online"){ L.push('TOKENIZER_MODE=online'); L.push(`TOKENIZER_ID="${v("TOKENIZER_ID")}"`); L.push(`TOKENIZER_SOURCE=${v("TOKENIZER_SOURCE")||"modelscope"}`); }
+  else { L.push('TOKENIZER_MODE=offline'); L.push(`TOKENIZER_PATH="${v("TOKENIZER_PATH")}"`); }
+  L.push(`TEMPLATE=${state.template}`); L.push(`MODE=${state.mode}`);
+  if(state.mode==="k8s"){ L.push(`K8S_NAMESPACE=${v("K8S_NAMESPACE")||"default"}`); if(v("K8S_IMAGE_PULL_SECRET")) L.push(`K8S_IMAGE_PULL_SECRET=${v("K8S_IMAGE_PULL_SECRET")}`); }
+  if(v("IMG")) L.push(`IMG="${v("IMG")}"`);
+  return L.join("\n");
+}
+
+function esc(s){return s;}
+function buildPlan(){
+  const t=TEMPLATES.find(x=>x.name===state.template);
+  const ns=($("K8S_NAMESPACE").value||"default").trim();
+  let prose;
+  if(t.axis==="prompt_len"){
+    prose=`按<span class="ax">输入长度</span> ${t.PROMPT_LENS} token 逐档扫描 × ${t.ROUNDS} 轮(第 1 轮冷缓存,其余暖);数据集 random(按 token 精确控长),并发固定 ${t.PARALLEL}、每档 ${t.NUMBER} 请求。SLO <span class="em">TTFT p95≤${t.TTFT}ms · ITL p95≤${t.ITL}ms</span> → 看 TTFT / 吞吐随输入长度的衰减。`;
+  } else {
+    const win=t.window?`(prompt ${t.window})`:"";
+    prose=`按<span class="ax">并发</span> ${t.PARALLEL} 逐档扫描 × ${t.ROUNDS} 轮(第 1 轮冷缓存,其余暖);数据集 ${t.dataset}${win},每档请求数 ${t.NUMBER}(与并发档逐元素配对)。SLO <span class="em">TTFT p95≤${t.TTFT}ms · ITL p95≤${t.ITL}ms</span> → 找满足 SLO 的<b>最大并发(拐点)</b>。`;
+  }
+  const cmd=[];
+  cmd.push('<span class="c"># 1) 把上面的 config.env 存到 evalscope/config.env</span>');
+  cmd.push('<span class="c"># 2) 进目录跑:</span>');
+  cmd.push('cd evalscope');
+  if(state.mode==="docker"){
+    cmd.push('<span class="k">make</span> smoke        <span class="c"># 冒烟:单档小跑,验全链路</span>');
+    cmd.push('<span class="k">make</span> run          <span class="c"># 全量扫,产出 out/&lt;run-id&gt;/</span>');
+    cmd.push('<span class="k">make</span> parse        <span class="c"># 找 SLO 拐点(解析 out/latest)</span>');
+  } else {
+    cmd.push('<span class="k">make</span> run MODE=k8s  <span class="c"># 渲染 yaml → kubectl apply → logs -f 看 SLO 表</span>');
+    cmd.push('<span class="c"># 头条结果在 kubectl logs;产物在 Pod emptyDir(要留存另挂 PVC)</span>');
+    cmd.push(`<span class="c"># 清理:</span> kubectl -n ${ns} delete job,cm,secret -l app.kubernetes.io/name=modeldoctor-run`);
+  }
+  return {prose, cmd:cmd.join("\n")};
+}
+
+function render(){ $("cfg").textContent=buildConfig(); const p=buildPlan(); $("planProse").innerHTML=p.prose; $("cmd").innerHTML=p.cmd; }
+
+$("parse").onclick=()=>{
+  const r=parseCurl($("curl").value); const got=[],miss=[];
+  if(r.url){$("URL").value=r.url;got.push("URL");}else miss.push("URL");
+  if(r.model){$("MODEL").value=r.model;got.push("MODEL");}else miss.push("MODEL");
+  if(r.key){$("KEY").value=r.key;got.push("KEY");}else miss.push("KEY");
+  const parts=[]; if(got.length)parts.push(`<b>✓ 已填 ${got.join(" · ")}</b>`); if(miss.length)parts.push(`<span class="miss">未识别 ${miss.join(" · ")},请手填</span>`);
+  $("parsed").innerHTML=parts.join("　"); render();
+};
+document.querySelectorAll('[data-tok]').forEach(b=>b.onclick=()=>{
+  state.tokMode=b.dataset.tok;
+  document.querySelectorAll('[data-tok]').forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  $("tok-online").style.display=state.tokMode==="online"?"":"none";
+  $("tok-offline").style.display=state.tokMode==="offline"?"":"none"; render();
+});
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+  state.mode=b.dataset.mode;
+  document.querySelectorAll('[data-mode]').forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  $("k8sFields").style.display=state.mode==="k8s"?"block":"none"; render();
+});
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",render));
+
+function copyText(txt){ if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(txt).catch(()=>fb(txt)); return Promise.resolve(fb(txt)); }
+function fb(txt){ const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(e){} document.body.removeChild(ta); }
+let tt; function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),1500); }
+document.querySelectorAll(".copy").forEach(b=>b.onclick=()=>{ copyText($(b.dataset.copy).textContent); toast(b.dataset.copy==="cfg"?"config.env 已复制":"命令已复制"); });
+
+renderCards(); render();
+</script>
+</body>
+</html>
